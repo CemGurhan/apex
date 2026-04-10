@@ -13,6 +13,7 @@ enum class OrderType {
 struct Order {
     int64_t id;
     int64_t quantity;
+    int64_t filled_quantity;
     Price price;
     Side side;
     uint64_t create_time;
