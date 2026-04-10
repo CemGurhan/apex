@@ -9,9 +9,11 @@ class OrderBook {
         std::map<Price, std::deque<Order>, std::greater<Price>> bids; // have bids sort highest to lowest
         std::map<Price, std::deque<Order>> asks;
 
-        void handleMarketOrderBuy(Order&& order) {
-            for (auto level_it = asks.begin(); level_it != asks.end();) {
+        template<typename MapType>
+        void handleMarketOrder(Order& order, MapType& map) {
+            for (auto level_it = map.begin(); level_it != map.end();) {
                 auto& resting_orders = level_it->second;
+                auto is_order_filled = false;
 
                 for (auto order_it = resting_orders.begin(); order_it != resting_orders.end();) {
                     auto& resting_order = *order_it;
@@ -42,14 +44,19 @@ class OrderBook {
                     }
 
                     if (order.quantity == 0) {
-                        return; // fully filled, nothing more to do.
+                        is_order_filled = true;
+                        break; // fully filled, nothing more to do.
                     } 
                 }
 
                 if (resting_orders.empty()) { // empty level, remove from book.
-                    level_it = asks.erase(level_it);
+                    level_it = map.erase(level_it);
                 } else {
                     ++level_it;
+                }
+
+                if (is_order_filled) {
+                    break;
                 }
             }
         }
@@ -67,6 +74,20 @@ class OrderBook {
                 return;
             }  
 
+        }
+
+        Order AddMarketOrder(Order order) {
+            if (order.type != OrderType::Market) {
+                throw std::invalid_argument("Order must be a market order");
+            }
+
+            if (order.side == Side::Buy) {
+                handleMarketOrder(order, asks);
+                return order;
+            }  
+
+            handleMarketOrder(order, bids);
+            return order;
         }
 
         int64_t GetBestBid() const {
