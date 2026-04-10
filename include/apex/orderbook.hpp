@@ -8,45 +8,51 @@ class OrderBook {
         std::map<int64_t, std::deque<Order>, std::greater<int64_t>> bids; // have bids sort highest to lowest
         std::map<int64_t, std::deque<Order>> asks;
 
+        bool matchOrder(Order& order, std::deque<Order>& resting_orders) {
+            auto is_order_filled = false;
+
+            for (auto order_it = resting_orders.begin(); order_it != resting_orders.end();) {
+                auto& resting_order = *order_it;
+
+                if (resting_order.quantity == 0) {
+                    ++order_it;
+                    continue; // shouldn't happen
+                }
+
+                if (resting_order.quantity >= order.quantity) {
+                    resting_order.quantity -= order.quantity;
+                    resting_order.filled_quantity += order.quantity;
+
+                    order.filled_quantity += order.quantity;
+                    order.quantity = 0; // fully filled
+                } else {
+                    order.quantity -= resting_order.quantity;
+                    order.filled_quantity += resting_order.quantity;
+
+                    resting_order.filled_quantity += resting_order.quantity;
+                    resting_order.quantity = 0; // fully filled
+                }
+
+                if (resting_order.quantity == 0) { // remove resting order from this level.
+                    order_it = resting_orders.erase(order_it);
+                } else {
+                    ++order_it;
+                }
+
+                if (order.quantity == 0) {
+                    is_order_filled = true;
+                    break; // fully filled, nothing more to do.
+                } 
+            }
+
+            return is_order_filled;
+        }
+
         template<typename MapType>
         void handleMarketOrder(Order& order, MapType& levels) {
             for (auto level_it = levels.begin(); level_it != levels.end();) {
                 auto& resting_orders = level_it->second;
-                auto is_order_filled = false;
-
-                for (auto order_it = resting_orders.begin(); order_it != resting_orders.end();) {
-                    auto& resting_order = *order_it;
-
-                    if (resting_order.quantity == 0) {
-                        ++order_it;
-                        continue; // shouldn't happen
-                    }
-
-                    if (resting_order.quantity >= order.quantity) {
-                        resting_order.quantity -= order.quantity;
-                        resting_order.filled_quantity += order.quantity;
-
-                        order.filled_quantity += order.quantity;
-                        order.quantity = 0; // fully filled
-                    } else {
-                        order.quantity -= resting_order.quantity;
-                        order.filled_quantity += resting_order.quantity;
-
-                        resting_order.filled_quantity += resting_order.quantity;
-                        resting_order.quantity = 0; // fully filled
-                    }
-
-                    if (resting_order.quantity == 0) { // remove resting order from this level.
-                        order_it = resting_orders.erase(order_it);
-                    } else {
-                        ++order_it;
-                    }
-
-                    if (order.quantity == 0) {
-                        is_order_filled = true;
-                        break; // fully filled, nothing more to do.
-                    } 
-                }
+                auto is_order_filled = matchOrder(order, resting_orders);
 
                 if (resting_orders.empty()) { // empty level, remove from book.
                     level_it = levels.erase(level_it);
@@ -65,7 +71,6 @@ class OrderBook {
             for ( auto level_it = levels.begin(); level_it != levels.end(); ) {
                 auto level_price = level_it->first;
                 auto& resting_orders = level_it->second;
-                auto is_order_filled = false;
 
                  if (order.side == Side::Buy) {
                     if (level_price > order.price) {
@@ -77,40 +82,7 @@ class OrderBook {
                     }
                 }
 
-                for (auto order_it = resting_orders.begin(); order_it != resting_orders.end(); ) {
-                    auto& resting_order = *order_it;
-
-                    if (resting_order.quantity == 0) {
-                        ++order_it;
-                        continue; // shouldn't happen
-                    }
-
-
-                    if (resting_order.quantity >= order.quantity) {
-                        resting_order.quantity -= order.quantity;
-                        resting_order.filled_quantity += order.quantity;
-
-                        order.filled_quantity += order.quantity;
-                        order.quantity = 0; // fully filled
-                    } else {
-                        order.quantity -= resting_order.quantity;
-                        order.filled_quantity += resting_order.quantity;
-
-                        resting_order.filled_quantity += resting_order.quantity;
-                        resting_order.quantity = 0; // fully filled
-                    }
-
-                    if (resting_order.quantity == 0) {
-                        order_it = resting_orders.erase(order_it);
-                    } else {
-                        ++order_it;
-                    }
-
-                    if (order.quantity == 0) {
-                        is_order_filled = true;
-                        break; // fully filled, nothing more to do.
-                    } 
-                }
+                auto is_order_filled = matchOrder(order, resting_orders);
 
                 if (resting_orders.empty()) {
                     level_it = levels.erase(level_it); // clear level
