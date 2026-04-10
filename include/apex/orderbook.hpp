@@ -2,16 +2,15 @@
 #include <deque>
 #include <functional>
 #include "order.hpp"
-#include "price.hpp"
 
 class OrderBook {
     private:
-        std::map<Price, std::deque<Order>, std::greater<Price>> bids; // have bids sort highest to lowest
-        std::map<Price, std::deque<Order>> asks;
+        std::map<int64_t, std::deque<Order>, std::greater<int64_t>> bids; // have bids sort highest to lowest
+        std::map<int64_t, std::deque<Order>> asks;
 
         template<typename MapType>
-        void handleMarketOrder(Order& order, MapType& map) {
-            for (auto level_it = map.begin(); level_it != map.end();) {
+        void handleMarketOrder(Order& order, MapType& levels) {
+            for (auto level_it = levels.begin(); level_it != levels.end();) {
                 auto& resting_orders = level_it->second;
                 auto is_order_filled = false;
 
@@ -50,7 +49,7 @@ class OrderBook {
                 }
 
                 if (resting_orders.empty()) { // empty level, remove from book.
-                    level_it = map.erase(level_it);
+                    level_it = levels.erase(level_it);
                 } else {
                     ++level_it;
                 }
@@ -61,19 +60,93 @@ class OrderBook {
             }
         }
 
-        void handleBid(const Order& order) {
-            
+        template<typename MapType>
+        void handleLimitOrder(Order& order, MapType& levels) {
+            for ( auto level_it = levels.begin(); level_it != levels.end(); ) {
+                auto level_price = level_it->first;
+                auto& resting_orders = level_it->second;
+                auto is_order_filled = false;
+
+                 if (order.side == Side::Buy) {
+                    if (level_price > order.price) {
+                        break; // Rest of asks will be higher price - cannot exceed limit price on buy.
+                    }
+                } else {
+                    if (level_price < order.price) {
+                        break; // Rest of bids will be lower price - cannot go below limit price on sell. 
+                    }
+                }
+
+                for (auto order_it = resting_orders.begin(); order_it != resting_orders.end(); ) {
+                    auto& resting_order = *order_it;
+
+                    if (resting_order.quantity == 0) {
+                        ++order_it;
+                        continue; // shouldn't happen
+                    }
+
+
+                    if (resting_order.quantity >= order.quantity) {
+                        resting_order.quantity -= order.quantity;
+                        resting_order.filled_quantity += order.quantity;
+
+                        order.filled_quantity += order.quantity;
+                        order.quantity = 0; // fully filled
+                    } else {
+                        order.quantity -= resting_order.quantity;
+                        order.filled_quantity += resting_order.quantity;
+
+                        resting_order.filled_quantity += resting_order.quantity;
+                        resting_order.quantity = 0; // fully filled
+                    }
+
+                    if (resting_order.quantity == 0) {
+                        order_it = resting_orders.erase(order_it);
+                    } else {
+                        ++order_it;
+                    }
+
+                    if (order.quantity == 0) {
+                        is_order_filled = true;
+                        break; // fully filled, nothing more to do.
+                    } 
+                }
+
+                if (resting_orders.empty()) {
+                    level_it = levels.erase(level_it); // clear level
+                } else {
+                    ++level_it;
+                }
+
+                if (is_order_filled) {
+                    break; // fully filled, nothing more to do.
+                }
+            }
+
+            if (order.quantity > 0 && order.side == Side::Buy) {
+                // add remaining quantity to book.
+                bids[order.price].push_back(order);
+            } else if (order.quantity > 0 && order.side == Side::Sell) {
+                // add remaining quantity to book.
+                asks[order.price].push_back(order);
+            }
 
             return;
         }
     
     public:
-        void AddOrder(const Order& order) {
+        Order AddLimitOrder(Order order) {
+            if (order.type != OrderType::Limit) {
+                throw std::invalid_argument("Order must be a limit order");
+            }
+
             if (order.side == Side::Buy) {
-                handleBid(order);
-                return;
+                handleLimitOrder(order, asks);
+                return order;
             }  
 
+            handleLimitOrder(order, bids);
+            return order;
         }
 
         Order AddMarketOrder(Order order) {
@@ -96,7 +169,7 @@ class OrderBook {
             }
 
             // return highest val as best.
-            return bids.begin()->first.value;
+            return bids.begin()->first;
         }
 
         int64_t GetBestAsk() const {
@@ -105,6 +178,6 @@ class OrderBook {
             }
 
             // return lowest val as best.
-            return asks.begin()->first.value;
+            return asks.begin()->first;
         }
 };

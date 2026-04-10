@@ -1,5 +1,4 @@
 #include <cstdint>
-#include "price.hpp"
 #include "side.hpp"
 
 // OrderType represents the type of an order, 
@@ -14,7 +13,7 @@ struct Order {
     int64_t id;
     int64_t quantity;
     int64_t filled_quantity;
-    Price price;
+    int64_t price;
     Side side;
     uint64_t create_time;
     OrderType type;
