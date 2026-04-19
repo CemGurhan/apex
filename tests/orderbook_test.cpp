@@ -3,20 +3,20 @@
 
 namespace {
 
-OrderNode MakeLimitBuy(int64_t id, int64_t price, int64_t qty) {
-    return OrderNode{id, qty, 0, price, Side::Buy, 0, OrderType::Limit};
+Order MakeLimitBuy(int64_t id, int64_t price, int64_t qty) {
+    return Order{id, qty, 0, price, Side::Buy, 0, OrderType::Limit};
 }
 
-OrderNode MakeLimitSell(int64_t id, int64_t price, int64_t qty) {
-    return OrderNode{id, qty, 0, price, Side::Sell, 0, OrderType::Limit};
+Order MakeLimitSell(int64_t id, int64_t price, int64_t qty) {
+    return Order{id, qty, 0, price, Side::Sell, 0, OrderType::Limit};
 }
 
-OrderNode MakeMarketBuy(int64_t id, int64_t qty) {
-    return OrderNode{id, qty, 0, 0, Side::Buy, 0, OrderType::Market};
+Order MakeMarketBuy(int64_t id, int64_t qty) {
+    return Order{id, qty, 0, 0, Side::Buy, 0, OrderType::Market};
 }
 
-OrderNode MakeMarketSell(int64_t id, int64_t qty) {
-    return OrderNode{id, qty, 0, 0, Side::Sell, 0, OrderType::Market};
+Order MakeMarketSell(int64_t id, int64_t qty) {
+    return Order{id, qty, 0, 0, Side::Sell, 0, OrderType::Market};
 }
 
 
