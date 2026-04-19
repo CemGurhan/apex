@@ -3,9 +3,23 @@
 #include <functional>
 #include "order.hpp"
 
+// OrderNode represents an order resting at a 
+// price level in the orderbook.
+struct OrderNode {
+    OrderNode* next = nullptr;
+    OrderNode* prev = nullptr;
+    int64_t id;
+    int64_t quantity;
+    int64_t filled_quantity = 0;
+    int64_t price;
+    Side side;
+    uint64_t create_time;
+    OrderType type;
+};
+
 struct PriceLevel {
-    RestingOrder* head;
-    RestingOrder* tail;
+    OrderNode* head = nullptr;
+    OrderNode* tail = nullptr;
 };
 
 class OrderBook {
@@ -13,8 +27,10 @@ class OrderBook {
         std::map<int64_t, PriceLevel, std::greater<int64_t>> bids; // have bids sort highest to lowest
         std::map<int64_t, PriceLevel> asks;
 
-        RestingOrder* convertOrderToRestingOrder(Order order) {
-            return new RestingOrder{
+        // convertOrderToOrderNode converts an order to an order node
+        // that can be rested on the order book.
+        OrderNode* convertOrderToOrderNode(Order order) {
+            return new OrderNode{
                 .id = order.id,
                 .quantity = order.quantity,
                 .filled_quantity = order.filled_quantity,
@@ -25,23 +41,11 @@ class OrderBook {
             };
         }
 
-        Order convertRestingOrderToOrder(RestingOrder* resting_order) {
-            return Order{
-                .id = resting_order->id,
-                .quantity = resting_order->quantity,
-                .filled_quantity = resting_order->filled_quantity,
-                .price = resting_order->price,
-                .side = resting_order->side,
-                .create_time = resting_order->create_time,
-                .type = resting_order->type
-            };
-        }
-
-        // removeOrderFromLevel removes the given resting order from the given price level 
+        // removeOrderFromLevel removes the given order node from the given price level 
         // and returns the next order in the level.
-        RestingOrder* removeOrderFromLevel(RestingOrder* resting_order, PriceLevel& price_level) {
-            auto prev = resting_order->prev;
-            auto next = resting_order->next;
+        OrderNode* removeOrderFromLevel(OrderNode* order_node, PriceLevel& price_level) {
+            auto prev = order_node->prev;
+            auto next = order_node->next;
 
             if (prev == nullptr) { // order we're removing was our head
                 price_level.head = next;
@@ -55,32 +59,37 @@ class OrderBook {
                 next->prev = prev;
             }
 
-            delete resting_order; // free memory of removed order.
+            delete order_node; // free memory of removed order.
 
             return next;
         }
 
-        void matchOrder(RestingOrder& order, PriceLevel& price_level) {
-            auto resting_orders = price_level.head;
-            auto resting_order = resting_orders;
+        void matchOrder(Order& order, PriceLevel& price_level) {
+            auto resting_order = price_level.head;
 
             while (resting_order != nullptr) {
-                if (resting_order->quantity == 0) {
+                auto resting_order_qty = resting_order->quantity;
+
+                if (resting_order_qty == 0) {
                     resting_order = resting_order->next;
                     continue; // shouldn't happen
                 }
 
-                if (resting_order->quantity >= order.quantity) {
+                // order can be filled with this resting order
+                if (resting_order_qty >= order.quantity) {
                     resting_order->quantity -= order.quantity;
                     resting_order->filled_quantity += order.quantity;
 
                     order.filled_quantity += order.quantity;
                     order.quantity = 0; // fully filled
-                } else {
-                    order.quantity -= resting_order->quantity;
-                    order.filled_quantity += resting_order->quantity;
+                } 
+                
+                // resting order can be filled with this order
+                if (resting_order_qty <= order.quantity) {
+                    order.quantity -= resting_order_qty;
+                    order.filled_quantity += resting_order_qty;
 
-                    resting_order->filled_quantity += resting_order->quantity;
+                    resting_order->filled_quantity += resting_order_qty;
                     resting_order->quantity = 0; // fully filled
                 }
 
@@ -91,7 +100,7 @@ class OrderBook {
                 }
 
                 if (order.quantity == 0) {
-                    break; // fully filled, nothing more to do.
+                    break; // order fully filled, nothing more to do.
                 } 
             }
 
@@ -99,12 +108,10 @@ class OrderBook {
         }
 
         template<typename MapType>
-        Order handleMarketOrder(Order order, MapType& levels) {
-            auto* resting_order = convertOrderToRestingOrder(order);
-
+        Order handleMarketOrder(Order& order, MapType& levels) {
             for (auto level_it = levels.begin(); level_it != levels.end();) {
-                auto price_level = level_it->second;
-                matchOrder(resting_order, price_level);
+                auto& price_level = level_it->second;
+                matchOrder(order, price_level);
 
                 if (price_level.head == nullptr) { // empty level, remove from book.
                     level_it = levels.erase(level_it);
@@ -112,29 +119,37 @@ class OrderBook {
                     ++level_it;
                 }
 
-                if (resting_order.quantity == 0) {
+                if (order.quantity == 0) {
                     break;
                 }
             }
 
-            return convertRestingOrderToOrder(resting_order);
+            return order;
         }
 
-        void addOrder(RestingOrder& order, PriceLevel& price_level) {
+        void addOrderToBook(const Order& o, PriceLevel& price_level) {
+            auto* order = convertOrderToOrderNode(o);
+
             auto head = price_level.head;
+            auto tail = price_level.tail;
+
+            if ((head != nullptr && tail == nullptr) ||
+                (head == nullptr && tail != nullptr)) {
+                throw std::logic_error("Invalid price level state: head and tail should both be null or both be non-null");
+            }
 
             if (head != nullptr) {
-                auto tail = price_level.tail;
-                tail->next = &order;
-                order.prev = tail;
-                price_level.tail = &order; // update tail of this level.
-            } else {
-                price_level = {&order, &order};
-            }
+                tail->next = order;
+                order->prev = tail;
+                price_level.tail = order; // update tail of this level.
+                return;
+            } 
+            
+            price_level = {order, order};
         }
 
         // validPrice returns true if the price is valid for this order.
-        bool validPrice(int64_t order_price, int64_t price, Side side) {
+        bool validPrice(int64_t order_price, Side side, int64_t price) {
             auto exceeds_buy_price = side == Side::Buy && price > order_price;
             auto below_sell_price = side == Side::Sell && price < order_price;
 
@@ -146,14 +161,12 @@ class OrderBook {
         }
 
         template<typename MapType>
-        Order handleLimitOrder(Order limit_order, MapType& levels) {
-            auto* order = convertOrderToRestingOrder(limit_order);
-
+        Order handleLimitOrder(Order& order, MapType& levels) {
             for ( auto level_it = levels.begin(); level_it != levels.end(); ) {
                 auto price = level_it->first;
                 auto& price_level = level_it->second;
 
-                if (!validPrice(order->price, price, order->side)) {
+                if (!validPrice(order.price, order.side, price)) {
                     break; // can't match any more levels, stop.
                 }
 
@@ -161,27 +174,26 @@ class OrderBook {
 
                 if (price_level.head == nullptr) {
                     level_it = levels.erase(level_it); // clear level
-                    continue;
-                } 
+                } else {
+                    ++level_it;
+                }
 
                 if (order.quantity == 0) {
                     break; // fully filled, nothing more to do.
                 }
-
-                ++level_it;
             }
 
-            // add remaining quantity to bids side of book.
-            if (order.quantity > 0 && limit_order.side == Side::Buy) {
-                addOrder(order, bids[limit_order.price]);
+            if (order.quantity > 0 && order.side == Side::Buy) {
+                // add remaining quantity to bids side of book.
+                addOrderToBook(order, bids[order.price]);
+            } 
+            
+            if (order.quantity > 0 && order.side == Side::Sell) {
+                // add remaining quantity to asks side of book.
+                addOrderToBook(order, asks[order.price]);
             } 
 
-            // add remaining quantity to asks side of book.
-            if (order.quantity > 0 && limit_order.side == Side::Sell) {
-                addOrder(order, asks[limit_order.price]);
-            }
-
-            return convertRestingOrderToOrder(order);
+            return order;
         }
     
     public:

@@ -8,21 +8,7 @@ enum class OrderType {
     Market
 };
 
-// Order represents an order in the orderbook.
-struct RestingOrder {
-    RestingOrder* next = nullptr;
-    RestingOrder* prev = nullptr;
-    int64_t id;
-    int64_t quantity;
-    int64_t filled_quantity = 0;
-    int64_t price;
-    Side side;
-    uint64_t create_time;
-    OrderType type;
-};
-
-// Order is a snapshot of an order resting
-// on the order book.
+// Order represents an order.
 struct Order {
     int64_t id;
     int64_t quantity;
