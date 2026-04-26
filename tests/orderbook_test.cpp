@@ -3,19 +3,19 @@
 
 namespace {
 
-Order MakeLimitBuy(int64_t id, int64_t price, int64_t qty) {
+Order MakeLimitBuy(uint64_t id, uint64_t price, uint64_t qty) {
     return Order{id, qty, 0, price, Side::Buy, 0, OrderType::Limit};
 }
 
-Order MakeLimitSell(int64_t id, int64_t price, int64_t qty) {
+Order MakeLimitSell(uint64_t id, uint64_t price, uint64_t qty) {
     return Order{id, qty, 0, price, Side::Sell, 0, OrderType::Limit};
 }
 
-Order MakeMarketBuy(int64_t id, int64_t qty) {
+Order MakeMarketBuy(uint64_t id, uint64_t qty) {
     return Order{id, qty, 0, 0, Side::Buy, 0, OrderType::Market};
 }
 
-Order MakeMarketSell(int64_t id, int64_t qty) {
+Order MakeMarketSell(uint64_t id, uint64_t qty) {
     return Order{id, qty, 0, 0, Side::Sell, 0, OrderType::Market};
 }
 
@@ -294,6 +294,156 @@ TEST(OrderBook, EmptyLevelRemovedAfterFullFill) {
     book.AddLimitOrder(MakeLimitBuy(3, 100, 10)); // wipe the 100 level
 
     EXPECT_EQ(book.GetBestAsk(), 105);
+}
+
+// ── Cancel Order ──
+
+TEST(CancelOrder, CancelRestingBidReturnsOrderSnapshot) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
+
+    auto cancelled = book.CancelOrder(1);
+
+    EXPECT_EQ(cancelled.id, 1);
+    EXPECT_EQ(cancelled.price, 100);
+    EXPECT_EQ(cancelled.quantity, 10);
+    EXPECT_EQ(cancelled.filled_quantity, 0);
+    EXPECT_EQ(cancelled.side, Side::Buy);
+}
+
+TEST(CancelOrder, CancelRestingAskReturnsOrderSnapshot) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitSell(1, 100, 10));
+
+    auto cancelled = book.CancelOrder(1);
+
+    EXPECT_EQ(cancelled.id, 1);
+    EXPECT_EQ(cancelled.price, 100);
+    EXPECT_EQ(cancelled.quantity, 10);
+    EXPECT_EQ(cancelled.side, Side::Sell);
+}
+
+TEST(CancelOrder, CancelRemovesBidFromBook) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
+
+    book.CancelOrder(1);
+
+    EXPECT_EQ(book.GetBestBid(), 0);
+}
+
+TEST(CancelOrder, CancelRemovesAskFromBook) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitSell(1, 100, 10));
+
+    book.CancelOrder(1);
+
+    EXPECT_EQ(book.GetBestAsk(), 0);
+}
+
+TEST(CancelOrder, ThrowsOnNonExistentOrderId) {
+    OrderBook book;
+
+    EXPECT_THROW(book.CancelOrder(999), std::invalid_argument);
+}
+
+TEST(CancelOrder, CancelBestBidRevealsNextBest) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitBuy(1, 100, 5));
+    book.AddLimitOrder(MakeLimitBuy(2, 90, 5));
+
+    book.CancelOrder(1);
+
+    EXPECT_EQ(book.GetBestBid(), 90);
+}
+
+TEST(CancelOrder, CancelBestAskRevealsNextBest) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5));
+    book.AddLimitOrder(MakeLimitSell(2, 110, 5));
+
+    book.CancelOrder(1);
+
+    EXPECT_EQ(book.GetBestAsk(), 110);
+}
+
+TEST(CancelOrder, CancelOneOfTwoAtSameLevelKeepsLevel) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5));
+    book.AddLimitOrder(MakeLimitSell(2, 100, 5));
+
+    book.CancelOrder(1);
+
+    EXPECT_EQ(book.GetBestAsk(), 100); // level still exists with order 2
+}
+
+TEST(CancelOrder, CancelHeadLeavesRemainingMatchable) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5)); // head
+    book.AddLimitOrder(MakeLimitSell(2, 100, 10)); // tail
+
+    book.CancelOrder(1); // remove head
+
+    // order 2 should still be matchable
+    auto result = book.AddLimitOrder(MakeLimitBuy(3, 100, 10));
+    EXPECT_EQ(result.filled_quantity, 10);
+    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(book.GetBestAsk(), 0);
+}
+
+TEST(CancelOrder, CancelTailLeavesHeadMatchable) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5)); // head
+    book.AddLimitOrder(MakeLimitSell(2, 100, 10)); // tail
+
+    book.CancelOrder(2); // remove tail
+
+    auto result = book.AddLimitOrder(MakeLimitBuy(3, 100, 5));
+    EXPECT_EQ(result.filled_quantity, 5);
+    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(book.GetBestAsk(), 0);
+}
+
+TEST(CancelOrder, CancelMiddleOfThreeOrderLevel) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5));  // head
+    book.AddLimitOrder(MakeLimitSell(2, 100, 5));  // middle
+    book.AddLimitOrder(MakeLimitSell(3, 100, 5));  // tail
+
+    book.CancelOrder(2); // remove middle
+
+    // head and tail should still be matchable in FIFO order
+    auto result = book.AddLimitOrder(MakeLimitBuy(4, 100, 10));
+    EXPECT_EQ(result.filled_quantity, 10);
+    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(book.GetBestAsk(), 0);
+}
+
+TEST(CancelOrder, CancelPartiallyFilledOrderReturnsCorrectSnapshot) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitSell(1, 100, 20));
+    book.AddLimitOrder(MakeLimitBuy(2, 100, 5)); // partially fills order 1
+
+    auto cancelled = book.CancelOrder(1);
+
+    EXPECT_EQ(cancelled.quantity, 15);
+    EXPECT_EQ(cancelled.filled_quantity, 5);
+}
+
+TEST(CancelOrder, DoubleCancelThrows) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
+
+    book.CancelOrder(1);
+    EXPECT_THROW(book.CancelOrder(1), std::invalid_argument);
+}
+
+TEST(CancelOrder, CancelFilledOrderThrows) {
+    OrderBook book;
+    book.AddLimitOrder(MakeLimitSell(1, 100, 10));
+    book.AddLimitOrder(MakeLimitBuy(2, 100, 10)); // fully fills order 1
+
+    EXPECT_THROW(book.CancelOrder(1), std::invalid_argument);
 }
 
 } 

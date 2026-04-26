@@ -206,7 +206,7 @@ class OrderBook {
         }
 
         // validPrice returns true if the price is valid for this order.
-        bool validPrice(int64_t order_price, Side side, uint64_t price) {
+        bool validPrice(uint64_t order_price, Side side, uint64_t price) {
             auto exceeds_buy_price = side == Side::Buy && price > order_price;
             auto below_sell_price = side == Side::Sell && price < order_price;
 
