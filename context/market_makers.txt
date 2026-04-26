@@ -28,4 +28,8 @@ end up with lower profits.
 - With tight spreads, you're also more exposed to well informed traders as you're closer to fair price. E.g. you might have placed
 a bid at 99 and an ask at 101. A well informed trader might be aware of a price decrease in the future, so sells to your good bid. You're left with the ask that loses out to a price decrease. If your spread was very wide, you'd be far away from fair on either side, so there's no reason for a well informed trader to trade them. 
 
-
+- market makers need to remain reactive. They usually track an inventory of units filled and if they're long or short. Lets
+say one end of their spread is sold at 50 units, the inventory is now 50 units short. The maker would like to have this short
+position be closed, so they cancel the existing bid they put out and raise the price of both bid and asks on either end of the spread
+and re-submit. Now, the bid is closer to the fair price, so they are more likely to be filled and reduce short position. The ask is further away
+from fair so they're now less likely to be bought from and hence less likely to go even shorter.
