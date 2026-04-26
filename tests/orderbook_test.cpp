@@ -446,4 +446,141 @@ TEST(CancelOrder, CancelFilledOrderThrows) {
     EXPECT_THROW(book.CancelOrder(1), std::invalid_argument);
 }
 
+// ── Trade Event Action ──
+
+TEST(TradeEventAction, CallbackInvokedOnTrade) {
+    OrderBook book;
+    std::vector<Trade> captured;
+    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+
+    book.AddLimitOrder(MakeLimitSell(1, 100, 10));
+    book.AddLimitOrder(MakeLimitBuy(2, 100, 10));
+
+    ASSERT_EQ(captured.size(), 1);
+}
+
+TEST(TradeEventAction, CallbackReceivesCorrectTradeFields) {
+    OrderBook book;
+    std::vector<Trade> captured;
+    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+
+    book.AddLimitOrder(MakeLimitSell(1, 100, 10));
+    book.AddLimitOrder(MakeLimitBuy(2, 100, 10));
+
+    ASSERT_EQ(captured.size(), 1);
+    EXPECT_EQ(captured[0].taker_order_id, 2);
+    EXPECT_EQ(captured[0].maker_order_id, 1);
+    EXPECT_EQ(captured[0].price, 100);
+    EXPECT_EQ(captured[0].filled_quantity, 10);
+    EXPECT_EQ(captured[0].sequence_number, 0);
+    EXPECT_GT(captured[0].create_time, 0u);
+}
+
+TEST(TradeEventAction, NotInvokedWhenNoMatch) {
+    OrderBook book;
+    std::vector<Trade> captured;
+    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+
+    book.AddLimitOrder(MakeLimitSell(1, 150, 10));
+    book.AddLimitOrder(MakeLimitBuy(2, 100, 10)); // no cross
+
+    EXPECT_TRUE(captured.empty());
+}
+
+TEST(TradeEventAction, InvokedOncePerTradeAcrossMultipleLevels) {
+    OrderBook book;
+    std::vector<Trade> captured;
+    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5));
+    book.AddLimitOrder(MakeLimitSell(2, 101, 5));
+    book.AddLimitOrder(MakeLimitSell(3, 102, 5));
+
+    book.AddLimitOrder(MakeLimitBuy(4, 102, 15));
+
+    ASSERT_EQ(captured.size(), 3);
+
+    EXPECT_EQ(captured[0].price, 100);
+    EXPECT_EQ(captured[0].maker_order_id, 1);
+    EXPECT_EQ(captured[0].filled_quantity, 5);
+
+    EXPECT_EQ(captured[1].price, 101);
+    EXPECT_EQ(captured[1].maker_order_id, 2);
+    EXPECT_EQ(captured[1].filled_quantity, 5);
+
+    EXPECT_EQ(captured[2].price, 102);
+    EXPECT_EQ(captured[2].maker_order_id, 3);
+    EXPECT_EQ(captured[2].filled_quantity, 5);
+}
+
+TEST(TradeEventAction, SequenceNumbersIncrementAcrossCallbacks) {
+    OrderBook book;
+    std::vector<Trade> captured;
+    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5));
+    book.AddLimitOrder(MakeLimitSell(2, 101, 5));
+    book.AddLimitOrder(MakeLimitBuy(3, 101, 10));
+
+    ASSERT_EQ(captured.size(), 2);
+    EXPECT_EQ(captured[0].sequence_number, 0);
+    EXPECT_EQ(captured[1].sequence_number, 1);
+}
+
+TEST(TradeEventAction, MarketOrderTriggersCallback) {
+    OrderBook book;
+    std::vector<Trade> captured;
+    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+
+    book.AddLimitOrder(MakeLimitSell(1, 100, 10));
+    book.AddMarketOrder(MakeMarketBuy(2, 10));
+
+    ASSERT_EQ(captured.size(), 1);
+    EXPECT_EQ(captured[0].taker_order_id, 2);
+    EXPECT_EQ(captured[0].maker_order_id, 1);
+    EXPECT_EQ(captured[0].price, 100);
+    EXPECT_EQ(captured[0].filled_quantity, 10);
+}
+
+TEST(TradeEventAction, NoCallbackRegisteredDoesNotCrash) {
+    OrderBook book;
+    // no SetTradeEventAction call
+    book.AddLimitOrder(MakeLimitSell(1, 100, 10));
+
+    EXPECT_NO_THROW(book.AddLimitOrder(MakeLimitBuy(2, 100, 10)));
+}
+
+TEST(TradeEventAction, ReplacingCallbackUsesNewAction) {
+    OrderBook book;
+    std::vector<Trade> first;
+    std::vector<Trade> second;
+
+    book.SetTradeEventAction([&](const Trade& t) { first.push_back(t); });
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5));
+    book.AddLimitOrder(MakeLimitBuy(2, 100, 5));
+
+    book.SetTradeEventAction([&](const Trade& t) { second.push_back(t); });
+    book.AddLimitOrder(MakeLimitSell(3, 100, 5));
+    book.AddLimitOrder(MakeLimitBuy(4, 100, 5));
+
+    EXPECT_EQ(first.size(), 1);
+    EXPECT_EQ(second.size(), 1);
+}
+
+TEST(TradeEventAction, FIFOWithinLevelFiresCallbackPerFill) {
+    OrderBook book;
+    std::vector<Trade> captured;
+    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5));
+    book.AddLimitOrder(MakeLimitSell(2, 100, 5));
+    book.AddLimitOrder(MakeLimitBuy(3, 100, 10));
+
+    ASSERT_EQ(captured.size(), 2);
+    EXPECT_EQ(captured[0].maker_order_id, 1);
+    EXPECT_EQ(captured[1].maker_order_id, 2);
+    EXPECT_EQ(captured[0].taker_order_id, 3);
+    EXPECT_EQ(captured[1].taker_order_id, 3);
+}
+
 } 
