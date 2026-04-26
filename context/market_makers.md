@@ -28,3 +28,4 @@ end up with lower profits.
 - With tight spreads, you're also more exposed to well informed traders as you're closer to fair price. E.g. you might have placed
 a bid at 99 and an ask at 101. A well informed trader might be aware of a price decrease in the future, so sells to your good bid. You're left with the ask that loses out to a price decrease. If your spread was very wide, you'd be far away from fair on either side, so there's no reason for a well informed trader to trade them. 
 
+

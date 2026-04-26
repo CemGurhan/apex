@@ -6,6 +6,7 @@
 #include "trade.hpp"
 #include <chrono>
 #include <atomic>
+#include "exchange.hpp"
 
 // OrderNode represents an order resting at a 
 // price level in the orderbook.
@@ -28,7 +29,7 @@ struct PriceLevel {
     OrderNode* tail = nullptr;
 };
 
-class OrderBook {
+class OrderBook : public Exchange {
     private:
         std::map<uint64_t, PriceLevel, std::greater<uint64_t>> bids; // have bids sort highest to lowest
         std::map<uint64_t, PriceLevel> asks;
@@ -261,7 +262,7 @@ class OrderBook {
         }
     
     public:
-        Order AddLimitOrder(Order order) {
+        Order AddLimitOrder(Order order) override {
             if (order.type != OrderType::Limit) {
                 throw std::invalid_argument("Order must be a limit order");
             }
@@ -273,7 +274,7 @@ class OrderBook {
             return handleLimitOrder(order, bids);
         }
 
-        Order AddMarketOrder(Order order) {
+        Order AddMarketOrder(Order order) override {
             if (order.type != OrderType::Market) {
                 throw std::invalid_argument("Order must be a market order");
             }
@@ -285,7 +286,7 @@ class OrderBook {
             return handleMarketOrder(order, bids);
         }
 
-        int64_t GetBestBid() const {
+        uint64_t GetBestBid() const override {
             if (bids.empty()) {
                 return 0;
             }
@@ -294,7 +295,7 @@ class OrderBook {
             return bids.begin()->first;
         }
 
-        int64_t GetBestAsk() const {
+        uint64_t GetBestAsk() const override {
             if (asks.empty()) {
                 return 0;
             }
@@ -305,7 +306,7 @@ class OrderBook {
 
         // CancelOrder cancels the order with the given order id and
         // returns the cancelled order.
-        Order CancelOrder(uint64_t order_id) {
+        Order CancelOrder(uint64_t order_id) override {
             auto it = order_id_to_node.find(order_id);
 
             if (it == order_id_to_node.end()) {
@@ -333,7 +334,7 @@ class OrderBook {
         }
 
         // SetTradeEventAction sets the action to be taken on each trade event emitted by this order book.
-        void SetTradeEventAction(std::function<void(const Trade&)> action) {
+        void SetTradeEventAction(std::function<void(const Trade&)> action) override {
             trade_event_action = action;
         }
 };
