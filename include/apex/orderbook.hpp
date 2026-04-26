@@ -35,6 +35,7 @@ class OrderBook {
         std::deque<Trade> trades; // queue of trades processed in this book. Processed by background routine for post-trade.
         std::atomic<uint64_t> trade_sequence_number{0}; // sequence number for trades, incremented on each new trade.
         std::unordered_map<uint64_t, OrderNode*> order_id_to_node; 
+        std::function<void(const Trade&)> trade_event_action;
 
         void emitTrade(uint64_t fill_quantity, uint64_t price, uint64_t taker_order_id, uint64_t maker_order_id) {
             if (fill_quantity == 0) {
@@ -58,6 +59,10 @@ class OrderBook {
                     .sequence_number = trade_sequence_number.fetch_add(1) 
                 }
             );
+
+            if (trade_event_action) {
+                trade_event_action(trades.back());
+            }
         }
 
         void trade(Order& order, OrderNode* resting_order, uint64_t price) {
@@ -83,6 +88,8 @@ class OrderBook {
             }
         }
 
+        // convertOrderNodeToOrder converts an order node to an order that can be 
+        // returned to the caller.
         Order convertOrderNodeToOrder(const OrderNode* order_node) {
             return Order{
                 .id = order_node->id,
@@ -323,5 +330,10 @@ class OrderBook {
             }
 
             return order_snap;
+        }
+
+        // SetTradeEventAction sets the action to be taken on each trade event emitted by this order book.
+        void SetTradeEventAction(std::function<void(const Trade&)> action) {
+            trade_event_action = action;
         }
 };
