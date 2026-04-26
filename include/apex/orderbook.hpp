@@ -2,6 +2,10 @@
 #include <deque>
 #include <functional>
 #include "order.hpp"
+#include <vector>
+#include "trade.hpp"
+#include <chrono>
+#include <atomic>
 
 // OrderNode represents an order resting at a 
 // price level in the orderbook.
@@ -17,6 +21,8 @@ struct OrderNode {
     OrderType type;
 };
 
+// PriceLevel represents a price level in the orderbook,
+// which is a linked list of orders resting at that price.
 struct PriceLevel {
     OrderNode* head = nullptr;
     OrderNode* tail = nullptr;
@@ -24,12 +30,61 @@ struct PriceLevel {
 
 class OrderBook {
     private:
-        std::map<int64_t, PriceLevel, std::greater<int64_t>> bids; // have bids sort highest to lowest
-        std::map<int64_t, PriceLevel> asks;
+        std::map<uint64_t, PriceLevel, std::greater<uint64_t>> bids; // have bids sort highest to lowest
+        std::map<uint64_t, PriceLevel> asks;
+        std::deque<Trade> trades; // queue of trades processed in this book. Processed by background routine for post-trade.
+        std::atomic<uint64_t> trade_sequence_number{0}; // sequence number for trades, incremented on each new trade.
+
+        void emitTrade(uint64_t fill_quantity, uint64_t price, uint64_t taker_order_id, uint64_t maker_order_id) {
+            if (fill_quantity == 0) {
+                return; // no trade to emit
+            }
+
+            auto time_now = static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()
+                ).count()
+            );
+
+
+            trades.emplace_back(
+                Trade { 
+                    .taker_order_id = taker_order_id,
+                    .maker_order_id = maker_order_id,
+                    .price = price,
+                    .filled_quantity = fill_quantity,
+                    .create_time = time_now,
+                    .sequence_number = trade_sequence_number.fetch_add(1) 
+                }
+            );
+        }
+
+        void trade(Order& order, OrderNode* resting_order, uint64_t price) {
+            auto resting_order_qty = resting_order->quantity;
+            auto order_qty = order.quantity;
+
+            if (resting_order_qty >= order.quantity) {
+                resting_order->quantity -= order.quantity;
+                resting_order->filled_quantity += order.quantity;
+
+                order.filled_quantity += order.quantity;
+                order.quantity = 0; // fully filled
+
+                emitTrade(order_qty, price, order.id, resting_order->id);
+            } else if (resting_order_qty <= order.quantity) {
+                order.quantity -= resting_order_qty;
+                order.filled_quantity += resting_order_qty;
+
+                resting_order->filled_quantity += resting_order_qty;
+                resting_order->quantity = 0; // fully filled
+
+                emitTrade(resting_order_qty, price, order.id, resting_order->id);
+            }
+        }
 
         // convertOrderToOrderNode converts an order to an order node
         // that can be rested on the order book.
-        OrderNode* convertOrderToOrderNode(Order order) {
+        OrderNode* convertOrderToOrderNode(const Order& order) {
             return new OrderNode{
                 .id = order.id,
                 .quantity = order.quantity,
@@ -64,7 +119,7 @@ class OrderBook {
             return next;
         }
 
-        void matchOrder(Order& order, PriceLevel& price_level) {
+        void matchOrder(Order& order, PriceLevel& price_level, int64_t price) {
             auto resting_order = price_level.head;
 
             while (resting_order != nullptr) {
@@ -75,23 +130,7 @@ class OrderBook {
                     continue; // shouldn't happen
                 }
 
-                // order can be filled with this resting order
-                if (resting_order_qty >= order.quantity) {
-                    resting_order->quantity -= order.quantity;
-                    resting_order->filled_quantity += order.quantity;
-
-                    order.filled_quantity += order.quantity;
-                    order.quantity = 0; // fully filled
-                } 
-                
-                // resting order can be filled with this order
-                if (resting_order_qty <= order.quantity) {
-                    order.quantity -= resting_order_qty;
-                    order.filled_quantity += resting_order_qty;
-
-                    resting_order->filled_quantity += resting_order_qty;
-                    resting_order->quantity = 0; // fully filled
-                }
+                trade(order, resting_order, price);
 
                 if (resting_order->quantity == 0) { 
                     resting_order = removeOrderFromLevel(resting_order, price_level);
@@ -111,7 +150,8 @@ class OrderBook {
         Order handleMarketOrder(Order& order, MapType& levels) {
             for (auto level_it = levels.begin(); level_it != levels.end();) {
                 auto& price_level = level_it->second;
-                matchOrder(order, price_level);
+                auto price = level_it->first;
+                matchOrder(order, price_level, price);
 
                 if (price_level.head == nullptr) { // empty level, remove from book.
                     level_it = levels.erase(level_it);
@@ -170,7 +210,7 @@ class OrderBook {
                     break; // can't match any more levels, stop.
                 }
 
-                matchOrder(order, price_level);
+                matchOrder(order, price_level, price);
 
                 if (price_level.head == nullptr) {
                     level_it = levels.erase(level_it); // clear level
