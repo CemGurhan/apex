@@ -10,10 +10,10 @@ enum class OrderType {
 
 // Order represents an order.
 struct Order {
-    int64_t id;
-    int64_t quantity;
-    int64_t filled_quantity = 0;
-    int64_t price;
+    uint64_t id;
+    uint64_t quantity;
+    uint64_t filled_quantity = 0;
+    uint64_t price;
     Side side;
     uint64_t create_time;
     OrderType type;

@@ -1,4 +1,4 @@
-#include <map>
+#include <set>
 #include <deque>
 #include <functional>
 #include "order.hpp"
@@ -12,10 +12,10 @@
 struct OrderNode {
     OrderNode* next = nullptr;
     OrderNode* prev = nullptr;
-    int64_t id;
-    int64_t quantity;
-    int64_t filled_quantity = 0;
-    int64_t price;
+    uint64_t id;
+    uint64_t quantity;
+    uint64_t filled_quantity = 0;
+    uint64_t price;
     Side side;
     uint64_t create_time;
     OrderType type;
@@ -34,6 +34,7 @@ class OrderBook {
         std::map<uint64_t, PriceLevel> asks;
         std::deque<Trade> trades; // queue of trades processed in this book. Processed by background routine for post-trade.
         std::atomic<uint64_t> trade_sequence_number{0}; // sequence number for trades, incremented on each new trade.
+        std::unordered_map<uint64_t, OrderNode*> order_id_to_node; 
 
         void emitTrade(uint64_t fill_quantity, uint64_t price, uint64_t taker_order_id, uint64_t maker_order_id) {
             if (fill_quantity == 0) {
@@ -82,6 +83,18 @@ class OrderBook {
             }
         }
 
+        Order convertOrderNodeToOrder(const OrderNode* order_node) {
+            return Order{
+                .id = order_node->id,
+                .quantity = order_node->quantity,
+                .filled_quantity = order_node->filled_quantity,
+                .price = order_node->price,
+                .side = order_node->side,
+                .create_time = order_node->create_time,
+                .type = order_node->type
+            };
+        }
+
         // convertOrderToOrderNode converts an order to an order node
         // that can be rested on the order book.
         OrderNode* convertOrderToOrderNode(const Order& order) {
@@ -99,6 +112,8 @@ class OrderBook {
         // removeOrderFromLevel removes the given order node from the given price level 
         // and returns the next order in the level.
         OrderNode* removeOrderFromLevel(OrderNode* order_node, PriceLevel& price_level) {
+            order_id_to_node.erase(order_node->id);
+
             auto prev = order_node->prev;
             auto next = order_node->next;
 
@@ -119,7 +134,7 @@ class OrderBook {
             return next;
         }
 
-        void matchOrder(Order& order, PriceLevel& price_level, int64_t price) {
+        void matchOrder(Order& order, PriceLevel& price_level, uint64_t price) {
             auto resting_order = price_level.head;
 
             while (resting_order != nullptr) {
@@ -182,14 +197,16 @@ class OrderBook {
                 tail->next = order;
                 order->prev = tail;
                 price_level.tail = order; // update tail of this level.
+                order_id_to_node[order->id] = order; 
                 return;
             } 
             
             price_level = {order, order};
+            order_id_to_node[order->id] = order; 
         }
 
         // validPrice returns true if the price is valid for this order.
-        bool validPrice(int64_t order_price, Side side, int64_t price) {
+        bool validPrice(int64_t order_price, Side side, uint64_t price) {
             auto exceeds_buy_price = side == Side::Buy && price > order_price;
             auto below_sell_price = side == Side::Sell && price < order_price;
 
@@ -277,5 +294,34 @@ class OrderBook {
 
             // return lowest val as best.
             return asks.begin()->first;
+        }
+
+        // CancelOrder cancels the order with the given order id and
+        // returns the cancelled order.
+        Order CancelOrder(uint64_t order_id) {
+            auto it = order_id_to_node.find(order_id);
+
+            if (it == order_id_to_node.end()) {
+                throw std::invalid_argument("Order ID \"" + std::to_string(order_id) + "\" not found");
+            }
+            
+            auto order_node = it->second;
+            auto side = order_node->side;
+            auto price = order_node->price;
+
+            auto& price_level = side == Side::Buy ? bids[price] : asks[price];
+            auto order_snap = convertOrderNodeToOrder(order_node);
+
+            removeOrderFromLevel(order_node, price_level);
+
+            if (price_level.head == nullptr) { // if level is empty after removing order, remove from book.
+                if (side == Side::Buy) {
+                    bids.erase(price);
+                } else {
+                    asks.erase(price);
+                }
+            }
+
+            return order_snap;
         }
 };
