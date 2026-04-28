@@ -32,7 +32,12 @@ class MarketMaker {
         std::pair<uint64_t, uint64_t> getSpreadPricesNormalized() {
             auto best_bid = exchange.GetBestBid();
             auto best_ask = exchange.GetBestAsk();
-            auto fair = best_ask + best_bid / 2.0;
+
+            if (best_bid == 0 || best_ask == 0) {
+                throw std::runtime_error("Cannot get spread prices: no bids or asks in the book");
+            }
+
+            auto fair = (best_ask + best_bid) / 2.0;
             fair = fair - (inventory * skew_factor); // shift quotes based on inventory position
 
             auto shift = base_spread / 2.0;
@@ -74,9 +79,11 @@ class MarketMaker {
         }
 
         void tradeEventAction(const Trade& trade) {
-            auto id_leg1 = -1;
+            auto is_taker = false;
+            uint64_t id_leg1 = 0;
             if (active_spread_ids.contains(trade.taker_order_id)) {
                id_leg1 = trade.taker_order_id;
+               is_taker = true;
             } else if (active_spread_ids.contains(trade.maker_order_id)) {
                id_leg1 = trade.maker_order_id;
             } else {
@@ -87,9 +94,11 @@ class MarketMaker {
             auto fill_quantity = trade.filled_quantity;
             auto side = trade.side;
 
-            if (side == Side::Buy) {
+            if (side == Side::Buy && is_taker || side == Side::Sell && !is_taker) {
+                // either we bought or were sold to
                 inventory += fill_quantity;
-            } else {
+            } else if (side == Side::Sell && is_taker || side == Side::Buy && !is_taker) {
+                // either we sold or were bought from
                 inventory -= fill_quantity;
             }
 
@@ -109,7 +118,11 @@ class MarketMaker {
             active_spread_ids.erase(id_leg1);
             active_spread_ids.erase(id_leg2);
 
-            placeQuotes();
+            try {
+                placeQuotes();
+            } catch (const std::runtime_error& e) {
+                // likely failed to place quotes due to empty book, return to caller.
+            }
         }
 
         public:
@@ -120,13 +133,14 @@ class MarketMaker {
                 uint64_t order_quantity,
                 uint64_t max_inventory,
                 double tick_size
-            ) : exchange{exchange} {
-                this->base_spread = base_spread;
-                this->skew_factor = skew_factor;
-                this->order_quantity = order_quantity;
-                this->max_inventory = max_inventory;
-                this->tick_size = tick_size;
-
+            ) : 
+            exchange{exchange}, 
+            base_spread{base_spread}, 
+            skew_factor{skew_factor}, 
+            order_quantity{order_quantity}, 
+            max_inventory{max_inventory}, 
+            tick_size{tick_size}
+            {
                 exchange.SetTradeEventAction([this](const Trade& trade) {
                     this->tradeEventAction(trade);
                 });
