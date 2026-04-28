@@ -1,4 +1,5 @@
 #include <functional>
+#include "side.hpp"
 
 
 struct Trade {
@@ -8,4 +9,5 @@ struct Trade {
     uint64_t filled_quantity = 0;
     uint64_t create_time = 0;
     uint64_t sequence_number = 0;
+    Side side; // side of the taker order
 };

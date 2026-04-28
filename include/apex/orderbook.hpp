@@ -38,7 +38,13 @@ class OrderBook : public Exchange {
         std::unordered_map<uint64_t, OrderNode*> order_id_to_node; 
         std::function<void(const Trade&)> trade_event_action;
 
-        void emitTrade(uint64_t fill_quantity, uint64_t price, uint64_t taker_order_id, uint64_t maker_order_id) {
+        void emitTrade(
+            uint64_t fill_quantity, 
+            uint64_t price, 
+            uint64_t taker_order_id, 
+            uint64_t maker_order_id,
+            Side side
+        ) {
             if (fill_quantity == 0) {
                 return; // no trade to emit
             }
@@ -57,7 +63,8 @@ class OrderBook : public Exchange {
                     .price = price,
                     .filled_quantity = fill_quantity,
                     .create_time = time_now,
-                    .sequence_number = trade_sequence_number.fetch_add(1) 
+                    .sequence_number = trade_sequence_number.fetch_add(1),
+                    .side = side
                 }
             );
 
@@ -77,7 +84,7 @@ class OrderBook : public Exchange {
                 order.filled_quantity += order.quantity;
                 order.quantity = 0; // fully filled
 
-                emitTrade(order_qty, price, order.id, resting_order->id);
+                emitTrade(order_qty, price, order.id, resting_order->id, order.side);
             } else if (resting_order_qty <= order.quantity) {
                 order.quantity -= resting_order_qty;
                 order.filled_quantity += resting_order_qty;
@@ -85,7 +92,7 @@ class OrderBook : public Exchange {
                 resting_order->filled_quantity += resting_order_qty;
                 resting_order->quantity = 0; // fully filled
 
-                emitTrade(resting_order_qty, price, order.id, resting_order->id);
+                emitTrade(resting_order_qty, price, order.id, resting_order->id, order.side);
             }
         }
 

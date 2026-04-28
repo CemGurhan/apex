@@ -2,13 +2,13 @@
 #include <functional>
 #include <unordered_map>
 #include <atomic>
-#include <thread>
+#include <semaphore>
 
 class MarketMaker {
     private:
-        Exchange& exchange;
-        std::unordered_map<uint64_t, uint64_t> active_order_ids; 
+        std::unordered_map<uint64_t, uint64_t> active_spread_ids;
 
+        Exchange& exchange;
         // base_spread is the minimum spread width. Can be widened or tightened 
         // depending on how the strategy is performing.
         uint64_t base_spread;
@@ -19,14 +19,21 @@ class MarketMaker {
         // max_inventory is the maximum inventory the MarketMaker is willing to hold.
         uint64_t max_inventory;
 
+        // inventory tracks the current net position of the MarketMaker. Positive means long, 
+        // negative means short.
+        int64_t inventory = 0;
+
         double tick_size;
 
-        std::atomic<uint64_t> id = 0;
+        uint64_t id = 0;
 
+        // getSpreadPricesNormalized returns a pair of tick size normalized prices.
+        // Pair 1 is the bid price, Pair 2 is the ask price.
         std::pair<uint64_t, uint64_t> getSpreadPricesNormalized() {
             auto best_bid = exchange.GetBestBid();
             auto best_ask = exchange.GetBestAsk();
             auto fair = best_ask + best_bid / 2.0;
+            fair = fair - (inventory * skew_factor); // shift quotes based on inventory position
 
             auto shift = base_spread / 2.0;
             auto bid_price = fair - shift;
@@ -38,8 +45,71 @@ class MarketMaker {
             return {bid_price_normalized, ask_price_normalized};
         }
 
-        void tradeEventAction(const Trade& trade) {
+        void placeQuotes() {
+            auto prices = getSpreadPricesNormalized();
+            auto bid_price_normalized = prices.first;
+            auto ask_price_normalized = prices.second;
 
+            auto id_bid = id++;
+            auto id_ask = id++;
+
+            active_spread_ids[id_bid] = id_ask;
+            exchange.AddLimitOrder(Order{
+                .id = id_bid,
+                .quantity = order_quantity,
+                .price = bid_price_normalized,
+                .side = Side::Buy,
+                .type = OrderType::Limit
+            });
+
+            
+            active_spread_ids[id_ask] = id_bid;
+            exchange.AddLimitOrder(Order{
+                .id = id_ask,
+                .quantity = order_quantity,
+                .price = ask_price_normalized,
+                .side = Side::Sell,
+                .type = OrderType::Limit
+            });
+        }
+
+        void tradeEventAction(const Trade& trade) {
+            auto id_leg1 = -1;
+            if (active_spread_ids.contains(trade.taker_order_id)) {
+               id_leg1 = trade.taker_order_id;
+            } else if (active_spread_ids.contains(trade.maker_order_id)) {
+               id_leg1 = trade.maker_order_id;
+            } else {
+                return; // trade doesn't involve one of our quotes, ignore
+            }
+
+
+            auto fill_quantity = trade.filled_quantity;
+            auto side = trade.side;
+
+            if (side == Side::Buy) {
+                inventory += fill_quantity;
+            } else {
+                inventory -= fill_quantity;
+            }
+
+            auto id_leg2 = active_spread_ids[id_leg1];
+            try {
+                exchange.CancelOrder(id_leg1);
+            } catch (const std::invalid_argument& e) {
+                // order was likely completely filled as is no longer resting, ignore error
+            }
+                   
+            try {
+                exchange.CancelOrder(id_leg2);
+            } catch (const std::invalid_argument& e) {
+                // order was likely completely filled as is no longer resting, ignore error
+            }
+
+            active_spread_ids.erase(id_leg1);
+            active_spread_ids.erase(id_leg2);
+
+            placeQuotes();
         }
 
         public:
@@ -62,33 +132,7 @@ class MarketMaker {
                 });
             }
         
-            void Run(std::stop_token stop) {
-                while (!stop.stop_requested()) {
-                    auto prices = getSpreadPricesNormalized();
-                    auto bid_price_normalized = prices.first;
-                    auto ask_price_normalized = prices.second;
-
-                    auto id_bid = id.fetch_add(1);
-                    auto id_ask = id.fetch_add(1);
-
-                    active_order_ids.insert(id_bid, id_ask);
-                    exchange.AddLimitOrder(Order{
-                        .id = id_bid,
-                        .quantity = order_quantity,
-                        .price = bid_price_normalized,
-                        .side = Side::Buy,
-                        .type = OrderType::Limit
-                    });
-
-                    
-                    active_order_ids.insert(id_ask, id_bid);
-                    exchange.AddLimitOrder(Order{
-                        .id = id_ask,
-                        .quantity = order_quantity,
-                        .price = ask_price_normalized,
-                        .side = Side::Sell,
-                        .type = OrderType::Limit
-                    });
-                }
+            void Start() {
+                placeQuotes(); // kickstart the strategy
             }
 };
