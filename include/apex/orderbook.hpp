@@ -1,3 +1,5 @@
+#pragma once
+
 #include <set>
 #include <deque>
 #include <functional>
@@ -38,10 +40,18 @@ class OrderBook : public Exchange {
         std::unordered_map<uint64_t, OrderNode*> order_id_to_node; 
         std::function<void(const Trade&)> trade_event_action;
 
+        void fireTradeCallbacks(size_t from_index) {
+            if (!trade_event_action) return;
+            auto end = trades.size();
+            for (size_t i = from_index; i < end; i++) {
+                trade_event_action(trades[i]);
+            }
+        }
+
         void emitTrade(
-            uint64_t fill_quantity, 
-            uint64_t price, 
-            uint64_t taker_order_id, 
+            uint64_t fill_quantity,
+            uint64_t price,
+            uint64_t taker_order_id,
             uint64_t maker_order_id,
             Side side
         ) {
@@ -55,9 +65,8 @@ class OrderBook : public Exchange {
                 ).count()
             );
 
-
             trades.emplace_back(
-                Trade { 
+                Trade {
                     .taker_order_id = taker_order_id,
                     .maker_order_id = maker_order_id,
                     .price = price,
@@ -67,10 +76,6 @@ class OrderBook : public Exchange {
                     .side = side
                 }
             );
-
-            if (trade_event_action) {
-                trade_event_action(trades.back());
-            }
         }
 
         void trade(Order& order, OrderNode* resting_order, uint64_t price) {
@@ -274,11 +279,16 @@ class OrderBook : public Exchange {
                 throw std::invalid_argument("Order must be a limit order");
             }
 
-            if (order.side == Side::Buy) {
-                return handleLimitOrder(order, asks);
-            }  
+            auto pre_trade_count = trades.size();
 
-            return handleLimitOrder(order, bids);
+            if (order.side == Side::Buy) {
+                order = handleLimitOrder(order, asks);
+            } else {
+                order = handleLimitOrder(order, bids);
+            }
+
+            fireTradeCallbacks(pre_trade_count);
+            return order;
         }
 
         Order AddMarketOrder(Order order) override {
@@ -286,11 +296,16 @@ class OrderBook : public Exchange {
                 throw std::invalid_argument("Order must be a market order");
             }
 
-            if (order.side == Side::Buy) {
-                return handleMarketOrder(order, asks);
-            }  
+            auto pre_trade_count = trades.size();
 
-            return handleMarketOrder(order, bids);
+            if (order.side == Side::Buy) {
+                order = handleMarketOrder(order, asks);
+            } else {
+                order = handleMarketOrder(order, bids);
+            }
+
+            fireTradeCallbacks(pre_trade_count);
+            return order;
         }
 
         uint64_t GetBestBid() const override {
@@ -312,12 +327,13 @@ class OrderBook : public Exchange {
         }
 
         // CancelOrder cancels the order with the given order id and
-        // returns the cancelled order.
-        Order CancelOrder(uint64_t order_id) override {
+        // returns the cancelled order. If the order was not found,
+        // returns nullopt.
+        std::optional<Order> CancelOrder(uint64_t order_id) override {
             auto it = order_id_to_node.find(order_id);
 
             if (it == order_id_to_node.end()) {
-                throw std::invalid_argument("Order ID \"" + std::to_string(order_id) + "\" not found");
+                return std::nullopt;
             }
             
             auto order_node = it->second;

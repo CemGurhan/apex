@@ -304,11 +304,12 @@ TEST(CancelOrder, CancelRestingBidReturnsOrderSnapshot) {
 
     auto cancelled = book.CancelOrder(1);
 
-    EXPECT_EQ(cancelled.id, 1);
-    EXPECT_EQ(cancelled.price, 100);
-    EXPECT_EQ(cancelled.quantity, 10);
-    EXPECT_EQ(cancelled.filled_quantity, 0);
-    EXPECT_EQ(cancelled.side, Side::Buy);
+    ASSERT_TRUE(cancelled.has_value());
+    EXPECT_EQ(cancelled->id, 1);
+    EXPECT_EQ(cancelled->price, 100);
+    EXPECT_EQ(cancelled->quantity, 10);
+    EXPECT_EQ(cancelled->filled_quantity, 0);
+    EXPECT_EQ(cancelled->side, Side::Buy);
 }
 
 TEST(CancelOrder, CancelRestingAskReturnsOrderSnapshot) {
@@ -317,10 +318,11 @@ TEST(CancelOrder, CancelRestingAskReturnsOrderSnapshot) {
 
     auto cancelled = book.CancelOrder(1);
 
-    EXPECT_EQ(cancelled.id, 1);
-    EXPECT_EQ(cancelled.price, 100);
-    EXPECT_EQ(cancelled.quantity, 10);
-    EXPECT_EQ(cancelled.side, Side::Sell);
+    ASSERT_TRUE(cancelled.has_value());
+    EXPECT_EQ(cancelled->id, 1);
+    EXPECT_EQ(cancelled->price, 100);
+    EXPECT_EQ(cancelled->quantity, 10);
+    EXPECT_EQ(cancelled->side, Side::Sell);
 }
 
 TEST(CancelOrder, CancelRemovesBidFromBook) {
@@ -341,10 +343,10 @@ TEST(CancelOrder, CancelRemovesAskFromBook) {
     EXPECT_EQ(book.GetBestAsk(), 0);
 }
 
-TEST(CancelOrder, ThrowsOnNonExistentOrderId) {
+TEST(CancelOrder, ReturnsNulloptOnNonExistentOrderId) {
     OrderBook book;
 
-    EXPECT_THROW(book.CancelOrder(999), std::invalid_argument);
+    EXPECT_FALSE(book.CancelOrder(999).has_value());
 }
 
 TEST(CancelOrder, CancelBestBidRevealsNextBest) {
@@ -426,24 +428,25 @@ TEST(CancelOrder, CancelPartiallyFilledOrderReturnsCorrectSnapshot) {
 
     auto cancelled = book.CancelOrder(1);
 
-    EXPECT_EQ(cancelled.quantity, 15);
-    EXPECT_EQ(cancelled.filled_quantity, 5);
+    ASSERT_TRUE(cancelled.has_value());
+    EXPECT_EQ(cancelled->quantity, 15);
+    EXPECT_EQ(cancelled->filled_quantity, 5);
 }
 
-TEST(CancelOrder, DoubleCancelThrows) {
+TEST(CancelOrder, DoubleCancelReturnsNullopt) {
     OrderBook book;
     book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
 
-    book.CancelOrder(1);
-    EXPECT_THROW(book.CancelOrder(1), std::invalid_argument);
+    ASSERT_TRUE(book.CancelOrder(1).has_value());
+    EXPECT_FALSE(book.CancelOrder(1).has_value());
 }
 
-TEST(CancelOrder, CancelFilledOrderThrows) {
+TEST(CancelOrder, CancelFilledOrderReturnsNullopt) {
     OrderBook book;
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
     book.AddLimitOrder(MakeLimitBuy(2, 100, 10)); // fully fills order 1
 
-    EXPECT_THROW(book.CancelOrder(1), std::invalid_argument);
+    EXPECT_FALSE(book.CancelOrder(1).has_value());
 }
 
 // ── Trade Event Action ──

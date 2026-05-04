@@ -20,3 +20,8 @@ add_executable(orderbook_test tests/orderbook_test.cpp)
 target_include_directories(orderbook_test PRIVATE include)
 target_link_libraries(orderbook_test GTest::gtest_main)
 add_test(NAME orderbook_test COMMAND orderbook_test)
+
+add_executable(marketmaker_test tests/marketmaker_test.cpp)
+target_include_directories(marketmaker_test PRIVATE include)
+target_link_libraries(marketmaker_test GTest::gtest_main)
+add_test(NAME marketmaker_test COMMAND marketmaker_test)
