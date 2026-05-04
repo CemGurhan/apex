@@ -52,26 +52,34 @@ TEST(MarketMaker, StartThrowsOnEmptyBook) {
     EXPECT_THROW(mm.Start(), std::runtime_error);
 }
 
-TEST(MarketMaker, StartThrowsOnNoBids) {
+TEST(MarketMaker, StartUsesAskAsFairWhenNoBids) {
     OrderBook book;
     book.AddLimitOrder(Order{
         .id = SEED_ASK_ID, .quantity = 100, .price = 150,
         .side = Side::Sell, .type = OrderType::Limit
     });
 
+    // fair = best_ask = 150, spread/2 = 5 → bid=145, ask=155
     MarketMaker mm(book, 10, 0, 5, 100, 1.0);
-    EXPECT_THROW(mm.Start(), std::runtime_error);
+    mm.Start();
+
+    EXPECT_EQ(book.GetBestBid(), 145);
+    EXPECT_EQ(book.GetBestAsk(), 150); // seed ask beats MM ask at 155
 }
 
-TEST(MarketMaker, StartThrowsOnNoAsks) {
+TEST(MarketMaker, StartUsesBidAsFairWhenNoAsks) {
     OrderBook book;
     book.AddLimitOrder(Order{
         .id = SEED_BID_ID, .quantity = 100, .price = 50,
         .side = Side::Buy, .type = OrderType::Limit
     });
 
+    // fair = best_bid = 50, spread/2 = 5 → bid=45, ask=55
     MarketMaker mm(book, 10, 0, 5, 100, 1.0);
-    EXPECT_THROW(mm.Start(), std::runtime_error);
+    mm.Start();
+
+    EXPECT_EQ(book.GetBestBid(), 50);  // seed bid beats MM bid at 45
+    EXPECT_EQ(book.GetBestAsk(), 55);
 }
 
 // ── Trade Callback: Inventory + Requoting ──
@@ -217,6 +225,84 @@ TEST(MarketMaker, TickSizeNormalizesQuotePrices) {
 
     EXPECT_EQ(book.GetBestBid(), 9);
     EXPECT_EQ(book.GetBestAsk(), 11);
+}
+
+// ── Requote with depleted sides ──
+
+TEST(MarketMaker, RequoteUsesAskAsFairWhenBidsDepleted) {
+    OrderBook book;
+    // Thin bid side: seed qty=5, MM will add qty=5
+    book.AddLimitOrder(Order{
+        .id = SEED_BID_ID, .quantity = 5, .price = 50,
+        .side = Side::Buy, .type = OrderType::Limit
+    });
+    book.AddLimitOrder(Order{
+        .id = SEED_ASK_ID, .quantity = 100, .price = 150,
+        .side = Side::Sell, .type = OrderType::Limit
+    });
+
+    MarketMaker mm(book, 10, 0, 5, 100, 1.0);
+    mm.Start();
+    // MM bid=95(qty=5), ask=105(qty=5)
+
+    // External sell consumes MM bid (5) + seed bid (5) → bids depleted
+    book.AddLimitOrder(Order{
+        .id = 20000, .quantity = 10, .price = 50,
+        .side = Side::Sell, .type = OrderType::Limit
+    });
+
+    // Requote uses best_ask=150 as fair → bid=145, ask=155
+    EXPECT_EQ(book.GetBestBid(), 145);
+    EXPECT_EQ(book.GetBestAsk(), 150); // seed ask beats MM ask at 155
+}
+
+TEST(MarketMaker, RequoteUsesBidAsFairWhenAsksDepleted) {
+    OrderBook book;
+    book.AddLimitOrder(Order{
+        .id = SEED_BID_ID, .quantity = 100, .price = 50,
+        .side = Side::Buy, .type = OrderType::Limit
+    });
+    // Thin ask side: seed qty=5, MM will add qty=5
+    book.AddLimitOrder(Order{
+        .id = SEED_ASK_ID, .quantity = 5, .price = 150,
+        .side = Side::Sell, .type = OrderType::Limit
+    });
+
+    MarketMaker mm(book, 10, 0, 5, 100, 1.0);
+    mm.Start();
+    // MM bid=95(qty=5), ask=105(qty=5)
+
+    // External buy consumes MM ask (5) + seed ask (5) → asks depleted
+    book.AddLimitOrder(Order{
+        .id = 20000, .quantity = 10, .price = 150,
+        .side = Side::Buy, .type = OrderType::Limit
+    });
+
+    // Requote uses best_bid=50 as fair → bid=45, ask=55
+    EXPECT_EQ(book.GetBestBid(), 50);  // seed bid beats MM bid at 45
+    EXPECT_EQ(book.GetBestAsk(), 55);
+}
+
+// ── Normalized price edge cases ──
+
+TEST(MarketMaker, StartThrowsWhenBothNormalizedPricesAreZero) {
+    OrderBook book;
+    SeedBook(book, 1, 100, 3, 100);
+
+    // fair = 2, spread/2 = 1 → bid_raw=1, ask_raw=3
+    // tick_size=4 → bid_norm=0, ask_norm=0
+    MarketMaker mm(book, 2, 0, 5, 100, 4.0);
+    EXPECT_THROW(mm.Start(), std::runtime_error);
+}
+
+TEST(MarketMaker, StartThrowsWhenBidNormalizedPriceIsZero) {
+    OrderBook book;
+    SeedBook(book, 1, 100, 5, 100);
+
+    // fair = 3, spread/2 = 2 → bid_raw=1, ask_raw=5
+    // tick_size=2 → bid_norm=0, ask_norm=2
+    MarketMaker mm(book, 4, 0, 5, 100, 2.0);
+    EXPECT_THROW(mm.Start(), std::runtime_error);
 }
 
 // ── Multiple Rounds ──
