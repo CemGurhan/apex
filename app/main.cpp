@@ -6,20 +6,19 @@
 
 // seedBook populates the orderbook with some initial limit orders 
 // to create a market for the market maker to operate in.
-void seedBook(OrderBook& book, int rng_seed) {
+void seedBook(OrderBook& book, int rng_seed, uint64_t seed_id) {
     std::mt19937 rng(rng_seed);
     std::uniform_int_distribution<uint64_t> mkt_qty_dist(1, 20);
 
     auto qty = mkt_qty_dist(rng);
 
-    uint64_t seed_id = 50000;
-    for (uint64_t price = 95; price <= 99; price++) {
+    for (uint64_t price = 90; price <= 98; price++) {
         book.AddLimitOrder(Order{
             .id = seed_id++, .quantity = qty, .price = price,
             .side = Side::Buy, .type = OrderType::Limit
         });
     }
-    for (uint64_t price = 101; price <= 105; price++) {
+    for (uint64_t price = 102; price <= 110; price++) {
         book.AddLimitOrder(Order{
             .id = seed_id++, .quantity = qty, .price = price,
             .side = Side::Sell, .type = OrderType::Limit
@@ -53,9 +52,9 @@ void printResult(int round, Side side, uint64_t qty, const Order& result,
               << trade_count << "\n";
 }
 
-void runMarketMaker(OrderBook& book, int rng_seed) {
+void runMarketMaker(OrderBook& book, int rng_seed, int seed_id) {
     // our overall spread between bid and ask offers.
-    uint64_t spread = 2;
+    uint64_t spread = 1;
     // Factor that helps decide to how far from fair we should move.
     double skew_factor = 0.05;
     uint64_t order_qty = 10;
@@ -87,7 +86,8 @@ void runMarketMaker(OrderBook& book, int rng_seed) {
 
         printResult(round, side, qty, result, book, mm, trade_count);
 
-        seedBook(book, rng_seed); // add more liquidity to book after each round to keep the market going.
+        seed_id += 100;
+        seedBook(book, ++rng_seed, seed_id); // add more liquidity to book after each round to keep the market going.
     }
 }
 
@@ -95,9 +95,11 @@ int main() {
     OrderBook book;
 
     auto rng_seed = 42;
+    auto seed_id = 500000;
 
-    seedBook(book, rng_seed);
-    runMarketMaker(book, rng_seed);
+    seedBook(book, ++rng_seed, seed_id);
+    seed_id += 100;
+    runMarketMaker(book, ++rng_seed, seed_id);
     
     return 0;
 }
