@@ -34,12 +34,25 @@ class MarketMaker {
             auto best_bid = exchange.GetBestBid();
             auto best_ask = exchange.GetBestAsk();
 
-            if (best_bid == 0 || best_ask == 0) {
-                throw std::runtime_error("Cannot get spread prices: no bids or asks in the book");
+            if (best_bid == 0 && best_ask == 0) {
+                return {0, 0}; // no bids or asks in the book
             }
 
-            auto fair = (best_ask + best_bid) / 2.0;
-            fair = fair - (inventory * skew_factor); // shift quotes based on inventory position
+            double fair;
+            if (best_bid == 0) {
+                fair = static_cast<double>(best_ask);
+            } else if (best_ask == 0) {
+                fair = static_cast<double>(best_bid);
+            } else {
+                fair = (best_ask + best_bid) / 2.0;
+            }
+
+            // shift quotes based on inventory position. E.g.
+            // if inventory is negative, we're short, so our fair value
+            // is higher in an effort to be more long. Asks will be less likely
+            // to fill (good - less shorting), bids will will be more likely to fill
+            // (good - more long).
+            fair = fair - (inventory * skew_factor); 
 
             auto shift = base_spread / 2.0;
             auto bid_price = fair - shift;
