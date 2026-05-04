@@ -10,13 +10,13 @@ void seedBook(OrderBook& book) {
     uint64_t seed_id = 50000;
     for (uint64_t price = 95; price <= 99; price++) {
         book.AddLimitOrder(Order{
-            .id = seed_id++, .quantity = 50, .price = price,
+            .id = seed_id++, .quantity = 10, .price = price,
             .side = Side::Buy, .type = OrderType::Limit
         });
     }
     for (uint64_t price = 101; price <= 105; price++) {
         book.AddLimitOrder(Order{
-            .id = seed_id++, .quantity = 50, .price = price,
+            .id = seed_id++, .quantity = 10, .price = price,
             .side = Side::Sell, .type = OrderType::Limit
         });
     }
@@ -52,10 +52,13 @@ void printResult(int round, Side side, uint64_t qty, const Order& result,
 }
 
 void runMarketMaker(OrderBook& book) {
-    uint64_t spread = 4;
-    int64_t skew = 1;
+    // our overall spread between bid and ask offers.
+    uint64_t spread = 2;
+    // Factor that helps decide to how far from fair we should move.
+    double skew_factor = 0.05;
     uint64_t order_qty = 10;
     int64_t max_inv = 50;
+    // tick size of trades.
     double tick = 1.0;
 
     std::mt19937 rng(42);
@@ -66,7 +69,7 @@ void runMarketMaker(OrderBook& book) {
     printColumnTitles();
 
     int trade_count = 0;
-    MarketMaker mm(book, spread, skew, order_qty, max_inv, tick);
+    MarketMaker mm(book, spread, skew_factor, order_qty, max_inv, tick);
     mm.Start();
 
     for (int round = 1; round <= 30; round++) {
@@ -88,5 +91,6 @@ int main() {
     OrderBook book;
     seedBook(book);
     runMarketMaker(book);
+    
     return 0;
 }

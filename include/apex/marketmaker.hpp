@@ -2,6 +2,7 @@
 
 #include "exchange.hpp"
 #include <functional>
+#include <iostream>
 
 
 class MarketMaker {
@@ -14,7 +15,7 @@ class MarketMaker {
         // depending on how the strategy is performing.
         uint64_t base_spread;
         // skew_factor dictates how aggressively to shift quotes.
-        int64_t skew_factor;
+        double skew_factor;
         // order_quantity is the size of each quote order placed by the MarketMaker.
         uint64_t order_quantity;
         // max_inventory is the maximum inventory the MarketMaker is willing to hold.
@@ -154,8 +155,7 @@ class MarketMaker {
             try {
                 placeQuotes();
             } catch (const std::runtime_error& e) {
-                // likely failed to place quotes due to empty book, return to caller.
-                // TODO: log an error here. 
+                std::cout << "MarketMaker caught an exception: " << e.what() << "\n";
             }
         }
 
@@ -163,7 +163,7 @@ class MarketMaker {
             MarketMaker(
                 Exchange& exchange,
                 uint64_t base_spread,
-                int64_t skew_factor,
+                double skew_factor,
                 uint64_t order_quantity,
                 int64_t max_inventory,
                 double tick_size
@@ -181,7 +181,11 @@ class MarketMaker {
             }
         
             void Start() {
-                placeQuotes(); // kickstart the strategy
+                try {
+                    placeQuotes();
+                } catch (const std::runtime_error& e) {
+                    std::cout << "MarketMaker caught an exception: " << e.what() << "\n";
+                }
             }
 
             int64_t GetInventory() const { return inventory; }
