@@ -34,14 +34,12 @@ void printColumnTitles() {
               << std::setw(10) << "BestBid"
               << std::setw(10) << "BestAsk"
               << std::setw(10) << "Inv"
-              << std::setw(8)  << "Source"
               << "Trades\n";
     std::cout << std::string(63, '-') << "\n";
 }
 
 void printResult(int round, Side side, uint64_t qty, const Order& result,
                   const OrderBook& book, const MarketMaker& mm, int trade_count) {
-    auto source = mm.GetInventory() != 0 ? "MM" : "SEED";
     std::cout << std::left
               << std::setw(5)  << round
               << std::setw(6)  << (side == Side::Buy ? "BUY" : "SELL")
@@ -50,7 +48,6 @@ void printResult(int round, Side side, uint64_t qty, const Order& result,
               << std::setw(10) << book.GetBestBid()
               << std::setw(10) << book.GetBestAsk()
               << std::setw(10) << mm.GetInventory()
-              << std::setw(8)  << source
               << trade_count << "\n";
 }
 
@@ -69,11 +66,10 @@ void runMarketMaker(OrderBook& book) {
     printColumnTitles();
 
     int trade_count = 0;
+    MarketMaker mm(book, spread, skew, order_qty, max_inv, tick);
+    mm.Start();
 
     for (int round = 1; round <= 30; round++) {
-        MarketMaker mm(book, spread, skew, order_qty, max_inv, tick);
-        mm.Start();
-
         auto side = side_dist(rng) == 0 ? Side::Buy : Side::Sell;
         auto qty = mkt_qty_dist(rng);
 
