@@ -6,23 +6,25 @@
 
 // seedBook populates the orderbook with some initial limit orders 
 // to create a market for the market maker to operate in.
-void seedBook(OrderBook& book) {
+void seedBook(OrderBook& book, int rng_seed) {
+    std::mt19937 rng(rng_seed);
+    std::uniform_int_distribution<uint64_t> mkt_qty_dist(1, 20);
+
+    auto qty = mkt_qty_dist(rng);
+
     uint64_t seed_id = 50000;
     for (uint64_t price = 95; price <= 99; price++) {
         book.AddLimitOrder(Order{
-            .id = seed_id++, .quantity = 10, .price = price,
+            .id = seed_id++, .quantity = qty, .price = price,
             .side = Side::Buy, .type = OrderType::Limit
         });
     }
     for (uint64_t price = 101; price <= 105; price++) {
         book.AddLimitOrder(Order{
-            .id = seed_id++, .quantity = 10, .price = price,
+            .id = seed_id++, .quantity = qty, .price = price,
             .side = Side::Sell, .type = OrderType::Limit
         });
     }
-
-    std::cout << "Book seeded: best_bid=" << book.GetBestBid()
-              << " best_ask=" << book.GetBestAsk() << "\n\n";
 }
 
 void printColumnTitles() {
@@ -51,7 +53,7 @@ void printResult(int round, Side side, uint64_t qty, const Order& result,
               << trade_count << "\n";
 }
 
-void runMarketMaker(OrderBook& book) {
+void runMarketMaker(OrderBook& book, int rng_seed) {
     // our overall spread between bid and ask offers.
     uint64_t spread = 2;
     // Factor that helps decide to how far from fair we should move.
@@ -61,7 +63,7 @@ void runMarketMaker(OrderBook& book) {
     // tick size of trades.
     double tick = 1.0;
 
-    std::mt19937 rng(42);
+    std::mt19937 rng(rng_seed);
     std::uniform_int_distribution<int> side_dist(0, 1);
     std::uniform_int_distribution<uint64_t> mkt_qty_dist(1, 20);
     uint64_t order_id = 100000;
@@ -84,13 +86,18 @@ void runMarketMaker(OrderBook& book) {
         if (result.filled_quantity > 0) trade_count++;
 
         printResult(round, side, qty, result, book, mm, trade_count);
+
+        seedBook(book, rng_seed); // add more liquidity to book after each round to keep the market going.
     }
 }
 
 int main() {
     OrderBook book;
-    seedBook(book);
-    runMarketMaker(book);
+
+    auto rng_seed = 42;
+
+    seedBook(book, rng_seed);
+    runMarketMaker(book, rng_seed);
     
     return 0;
 }
