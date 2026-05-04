@@ -183,4 +183,6 @@ class MarketMaker {
             void Start() {
                 placeQuotes(); // kickstart the strategy
             }
+
+            int64_t GetInventory() const { return inventory; }
 };

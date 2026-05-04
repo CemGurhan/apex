@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(apex app/main.cpp)
+target_include_directories(apex PRIVATE include)
 
 # Google Test
 include(FetchContent)
