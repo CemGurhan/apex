@@ -7,6 +7,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_executable(apex app/main.cpp)
 target_include_directories(apex PRIVATE include)
 
+if(APPLE)
+    add_custom_command(TARGET apex POST_BUILD
+        COMMAND codesign -s - --entitlements ${CMAKE_SOURCE_DIR}/debug.entitlements -f $<TARGET_FILE:apex>
+    )
+endif()
+
 # Google Test
 include(FetchContent)
 FetchContent_Declare(

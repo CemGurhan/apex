@@ -25,6 +25,35 @@ void seedBook(OrderBook& book) {
               << " best_ask=" << book.GetBestAsk() << "\n\n";
 }
 
+void printColumnTitles() {
+    std::cout << std::left
+              << std::setw(5)  << "#"
+              << std::setw(6)  << "Side"
+              << std::setw(6)  << "Qty"
+              << std::setw(8)  << "Filled"
+              << std::setw(10) << "BestBid"
+              << std::setw(10) << "BestAsk"
+              << std::setw(10) << "Inv"
+              << std::setw(8)  << "Source"
+              << "Trades\n";
+    std::cout << std::string(63, '-') << "\n";
+}
+
+void printResult(int round, Side side, uint64_t qty, const Order& result,
+                  const OrderBook& book, const MarketMaker& mm, int trade_count) {
+    auto source = mm.GetInventory() != 0 ? "MM" : "SEED";
+    std::cout << std::left
+              << std::setw(5)  << round
+              << std::setw(6)  << (side == Side::Buy ? "BUY" : "SELL")
+              << std::setw(6)  << qty
+              << std::setw(8)  << result.filled_quantity
+              << std::setw(10) << book.GetBestBid()
+              << std::setw(10) << book.GetBestAsk()
+              << std::setw(10) << mm.GetInventory()
+              << std::setw(8)  << source
+              << trade_count << "\n";
+}
+
 void runMarketMaker(OrderBook& book) {
     uint64_t spread = 4;
     int64_t skew = 1;
@@ -37,16 +66,7 @@ void runMarketMaker(OrderBook& book) {
     std::uniform_int_distribution<uint64_t> mkt_qty_dist(1, 20);
     uint64_t order_id = 100000;
 
-    std::cout << std::left
-              << std::setw(5)  << "#"
-              << std::setw(6)  << "Side"
-              << std::setw(6)  << "Qty"
-              << std::setw(8)  << "Filled"
-              << std::setw(10) << "BestBid"
-              << std::setw(10) << "BestAsk"
-              << std::setw(10) << "Inv"
-              << "Trades\n";
-    std::cout << std::string(55, '-') << "\n";
+    printColumnTitles();
 
     int trade_count = 0;
 
@@ -64,15 +84,7 @@ void runMarketMaker(OrderBook& book) {
 
         if (result.filled_quantity > 0) trade_count++;
 
-        std::cout << std::left
-                  << std::setw(5)  << round
-                  << std::setw(6)  << (side == Side::Buy ? "BUY" : "SELL")
-                  << std::setw(6)  << qty
-                  << std::setw(8)  << result.filled_quantity
-                  << std::setw(10) << book.GetBestBid()
-                  << std::setw(10) << book.GetBestAsk()
-                  << std::setw(10) << mm.GetInventory()
-                  << trade_count << "\n";
+        printResult(round, side, qty, result, book, mm, trade_count);
     }
 }
 
