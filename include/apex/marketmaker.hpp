@@ -52,12 +52,13 @@ class MarketMaker {
             // if inventory is negative, we're short, so our fair value
             // is higher in an effort to be more long. Asks will be less likely
             // to fill (good - less shorting), bids will will be more likely to fill
-            // (good - more long).
-            fair = fair - (inventory * skew_factor); 
+            // (good - more long). reservation price is where we're indifferent
+            // between buying and selling.
+            auto reservation_price = fair - (inventory * skew_factor); 
 
             auto shift = base_spread / 2.0;
-            auto bid_price = fair - shift;
-            auto ask_price = fair + shift;
+            auto bid_price = reservation_price - shift;
+            auto ask_price = reservation_price + shift;
 
             auto bid_price_normalized = static_cast<uint64_t>(bid_price / tick_size);
             auto ask_price_normalized = static_cast<uint64_t>(ask_price / tick_size);
