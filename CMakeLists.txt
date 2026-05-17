@@ -32,3 +32,8 @@ add_executable(marketmaker_test tests/marketmaker_test.cpp)
 target_include_directories(marketmaker_test PRIVATE include)
 target_link_libraries(marketmaker_test GTest::gtest_main)
 add_test(NAME marketmaker_test COMMAND marketmaker_test)
+
+add_executable(ringbuffer_test tests/ringbuffer_test.cpp)
+target_include_directories(ringbuffer_test PRIVATE include)
+target_link_libraries(ringbuffer_test GTest::gtest_main)
+add_test(NAME ringbuffer_test COMMAND ringbuffer_test)
