@@ -42,3 +42,8 @@ add_executable(orderbookclient_test tests/orderbookclient_test.cpp)
 target_include_directories(orderbookclient_test PRIVATE include)
 target_link_libraries(orderbookclient_test GTest::gtest_main)
 add_test(NAME orderbookclient_test COMMAND orderbookclient_test)
+
+add_executable(simfeeder_test tests/simfeeder_test.cpp)
+target_include_directories(simfeeder_test PRIVATE include)
+target_link_libraries(simfeeder_test GTest::gtest_main)
+add_test(NAME simfeeder_test COMMAND simfeeder_test)

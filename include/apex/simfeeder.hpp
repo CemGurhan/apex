@@ -93,9 +93,6 @@ class SimulatedFeeder : EventFeeder {
         }
 
         void generateLimitOrder() {
-            // geometric brownian, not arithmetic, to keep +ve,
-            // multiply fair price to get next val.
-            fair_price *= std::exp(config.sigma * fair_price_dist(rng));
             auto side = side_dist(rng) ? Side::Buy : Side::Sell;
 
             auto price_offset = offset_dist(rng);
@@ -107,7 +104,7 @@ class SimulatedFeeder : EventFeeder {
             }
 
             if (order_price > 0) {
-                pushOrderBookEvent(OrderBookEventType::LimitOrder, std::abs(order_price), side);
+                pushOrderBookEvent(OrderBookEventType::LimitOrder, order_price, side);
             }
         }
 
@@ -176,6 +173,10 @@ class SimulatedFeeder : EventFeeder {
 
         void run(std::stop_token stop) {
             while(!stop.stop_requested()) {
+                // geometric brownian, not arithmetic, to keep +ve,
+                // multiply fair price to get next val.
+                fair_price *= std::exp(config.sigma * fair_price_dist(rng));
+
                 int order_type = order_place_dist(rng);
 
                 if (order_type == 0) {
@@ -216,8 +217,8 @@ class SimulatedFeeder : EventFeeder {
         aggressive_dist(config.aggressive_prob),
         order_place_dist({config.market_order_prob, config.limit_order_prob, config.cancel_order_prob}),
         rng(std::random_device{}()),
+        order_id_range{static_cast<uint64_t>(order_id_range.first), static_cast<uint64_t>(order_id_range.second)},
         client_id{static_cast<uint64_t>(order_id_range.first - 1)},
-        fair_price{starting_fair_price},
-        order_id_range{static_cast<uint64_t>(order_id_range.first), static_cast<uint64_t>(order_id_range.second)}
+        fair_price{starting_fair_price}
         {};
 };
