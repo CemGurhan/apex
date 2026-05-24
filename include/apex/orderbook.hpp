@@ -40,6 +40,7 @@ class OrderBook : public Exchange {
         std::atomic<uint64_t> trade_sequence_number{0}; // sequence number for trades, incremented on each new trade.
         std::unordered_map<uint64_t, OrderNode*> order_id_to_node; 
         std::function<void(const Trade&)> trade_event_action;
+        double tick_size = 0;
 
         void fireTradeCallbacks(size_t from_index) {
             if (!trade_event_action) return;
@@ -361,4 +362,10 @@ class OrderBook : public Exchange {
         void SetTradeEventAction(std::function<void(const Trade&)> action) override {
             trade_event_action = action;
         }
+
+        double GetTickSize() const {
+            return tick_size;
+        }
+
+        OrderBook(double tick_size) : tick_size{tick_size} {}
 };

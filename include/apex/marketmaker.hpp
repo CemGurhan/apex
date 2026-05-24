@@ -25,8 +25,6 @@ class MarketMaker {
         // negative means short.
         int64_t inventory = 0;
 
-        double tick_size;
-
         uint64_t id = 1;
 
         // getSpreadPricesNormalized returns a pair of tick size normalized prices.
@@ -60,8 +58,8 @@ class MarketMaker {
             auto bid_price = reservation_price - shift;
             auto ask_price = reservation_price + shift;
 
-            auto bid_price_normalized = static_cast<uint64_t>(bid_price / tick_size);
-            auto ask_price_normalized = static_cast<uint64_t>(ask_price / tick_size);
+            auto bid_price_normalized = static_cast<uint64_t>(bid_price / exchange.GetTickSize());
+            auto ask_price_normalized = static_cast<uint64_t>(ask_price / exchange.GetTickSize());
             
             return {bid_price_normalized, ask_price_normalized};
         }
@@ -166,15 +164,13 @@ class MarketMaker {
                 uint64_t base_spread,
                 double skew_factor,
                 uint64_t order_quantity,
-                int64_t max_inventory,
-                double tick_size
+                int64_t max_inventory
             ) : 
             exchange{exchange}, 
             base_spread{base_spread}, 
             skew_factor{skew_factor}, 
             order_quantity{order_quantity}, 
-            max_inventory{max_inventory}, 
-            tick_size{tick_size}
+            max_inventory{max_inventory} 
             {
                 exchange.SetTradeEventAction([this](const Trade& trade) {
                     this->tradeEventAction(trade);

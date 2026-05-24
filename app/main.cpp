@@ -59,8 +59,6 @@ void runMarketMaker(OrderBook& book, int rng_seed, int seed_id) {
     double skew_factor = 0.05;
     uint64_t order_qty = 10;
     int64_t max_inv = 50;
-    // tick size of trades.
-    double tick = 1.0;
 
     std::mt19937 rng(rng_seed);
     std::uniform_int_distribution<int> side_dist(0, 1);
@@ -70,7 +68,7 @@ void runMarketMaker(OrderBook& book, int rng_seed, int seed_id) {
     printColumnTitles();
 
     int trade_count = 0;
-    MarketMaker mm(book, spread, skew_factor, order_qty, max_inv, tick);
+    MarketMaker mm(book, spread, skew_factor, order_qty, max_inv);
     mm.Start();
 
     for (int round = 1; round <= 30; round++) {
@@ -92,7 +90,9 @@ void runMarketMaker(OrderBook& book, int rng_seed, int seed_id) {
 }
 
 int main() {
-    OrderBook book;
+    // tick size of trades.
+    double tick_size = 1.0;
+    OrderBook book = OrderBook(tick_size);
 
     auto rng_seed = 42;
     auto seed_id = 500000;

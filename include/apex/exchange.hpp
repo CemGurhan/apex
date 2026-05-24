@@ -12,5 +12,6 @@ public:
     virtual uint64_t GetBestBid() const = 0;
     virtual uint64_t GetBestAsk() const = 0;
     virtual void SetTradeEventAction(std::function<void(const Trade&)> action) = 0;
+    virtual double GetTickSize() const = 0;
     virtual ~Exchange() = default;
 };
