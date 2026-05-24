@@ -49,7 +49,7 @@ class MarketMaker {
             }
 
             // shift quotes based on inventory position. E.g.
-            // if inventory is negative, we're short, so our fair value
+            // if inventory is negative, we're short, so our reservation price
             // is higher in an effort to be more long. Asks will be less likely
             // to fill (good - less shorting), bids will will be more likely to fill
             // (good - more long). reservation price is where we're indifferent
