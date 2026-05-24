@@ -27,23 +27,23 @@ class MarketMaker {
 
         uint64_t id = 1;
 
-        // getSpreadPricesNormalized returns a pair of tick size normalized prices.
-        // Pair 1 is the bid price, Pair 2 is the ask price.
-        std::pair<uint64_t, uint64_t> getSpreadPricesNormalized() {
-            auto best_bid = exchange.GetBestBid();
-            auto best_ask = exchange.GetBestAsk();
+        // getSpreadPrices returns the bid/ask price doubles to place around fair.
+        // Returns {0, 0} when the book is empty. 
+        std::pair<double, double> getSpreadPrices() {
+            auto best_bid_price = exchange.GetBestBid();
+            auto best_ask_price = exchange.GetBestAsk();
 
-            if (best_bid == 0 && best_ask == 0) {
+            if (best_bid_price == 0.0 && best_ask_price == 0.0) {
                 return {0, 0}; // no bids or asks in the book
             }
 
             double fair;
-            if (best_bid == 0) {
-                fair = static_cast<double>(best_ask);
-            } else if (best_ask == 0) {
-                fair = static_cast<double>(best_bid);
+            if (best_bid_price == 0.0) {
+                fair = best_ask_price;
+            } else if (best_ask_price == 0.0) {
+                fair = best_bid_price;
             } else {
-                fair = (best_ask + best_bid) / 2.0;
+                fair = (best_ask_price + best_bid_price) / 2.0;
             }
 
             // shift quotes based on inventory position. E.g.
@@ -52,16 +52,13 @@ class MarketMaker {
             // to fill (good - less shorting), bids will will be more likely to fill
             // (good - more long). reservation price is where we're indifferent
             // between buying and selling.
-            auto reservation_price = fair - (inventory * skew_factor); 
+            auto reservation_price = fair - (inventory * skew_factor);
 
             auto shift = base_spread / 2.0;
             auto bid_price = reservation_price - shift;
             auto ask_price = reservation_price + shift;
 
-            auto bid_price_normalized = static_cast<uint64_t>(bid_price / exchange.GetTickSize());
-            auto ask_price_normalized = static_cast<uint64_t>(ask_price / exchange.GetTickSize());
-            
-            return {bid_price_normalized, ask_price_normalized};
+            return {bid_price, ask_price};
         }
 
         void placeQuotes() {
@@ -70,28 +67,14 @@ class MarketMaker {
             active_bid_id = std::nullopt;
             active_ask_id = std::nullopt;
 
-            auto prices = getSpreadPricesNormalized();
-            auto bid_price_normalized = prices.first;
-            auto ask_price_normalized = prices.second;
+            auto [bid_price, ask_price] = getSpreadPrices();
             auto order_qty_i64 = static_cast<int64_t>(order_quantity);
 
             auto too_long = inventory + order_qty_i64 > max_inventory;
             auto too_short = inventory - order_qty_i64 < -max_inventory;
 
-            if (ask_price_normalized == 0 && bid_price_normalized == 0) {
+            if (bid_price == 0.0 && ask_price == 0.0) {
                 throw std::runtime_error("Cannot place quotes: no bids or asks in the book");
-            }
-
-            // If no asks, we only continue if our inventory is too short i.e.
-            // we need to be more long by placing a bid.
-            if (ask_price_normalized == 0 && !too_short) {
-                throw std::runtime_error("Cannot place quotes: no asks in the book");
-            }
-
-            // If no bids, we only continue if our inventory is too long i.e.
-            // we need to be more short by placing an ask.
-            if (bid_price_normalized == 0 && !too_long) {
-                throw std::runtime_error("Cannot place quotes: no bids in the book");
             }
 
             uint64_t id_bid = 0;
@@ -103,29 +86,29 @@ class MarketMaker {
                 id_bid = id++;
             } else if (!too_short) {
                 id_ask = id++;
-            } 
+            }
 
             if (!too_long) {
                 active_bid_id = id_bid;
                 exchange.AddLimitOrder(Order{
                     .id = id_bid,
                     .quantity = order_quantity,
-                    .price = bid_price_normalized,
+                    .price = bid_price,
                     .side = Side::Buy,
                     .type = OrderType::Limit
                 });
             }
 
-            if (!too_short) {   
+            if (!too_short) {
                 active_ask_id = id_ask;
                 exchange.AddLimitOrder(Order{
                     .id = id_ask,
                     .quantity = order_quantity,
-                    .price = ask_price_normalized,
+                    .price = ask_price,
                     .side = Side::Sell,
                     .type = OrderType::Limit
                 });
-            }        
+            }
         }
 
         void tradeEventAction(const Trade& trade) {

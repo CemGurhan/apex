@@ -14,13 +14,13 @@ void seedBook(OrderBook& book, int rng_seed, uint64_t seed_id) {
 
     for (uint64_t price = 90; price <= 98; price++) {
         book.AddLimitOrder(Order{
-            .id = seed_id++, .quantity = qty, .price = price,
+            .id = seed_id++, .quantity = qty, .price = static_cast<double>(price),
             .side = Side::Buy, .type = OrderType::Limit
         });
     }
     for (uint64_t price = 102; price <= 110; price++) {
         book.AddLimitOrder(Order{
-            .id = seed_id++, .quantity = qty, .price = price,
+            .id = seed_id++, .quantity = qty, .price = static_cast<double>(price),
             .side = Side::Sell, .type = OrderType::Limit
         });
     }

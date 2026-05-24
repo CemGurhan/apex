@@ -42,6 +42,12 @@ class OrderBook : public Exchange {
         std::function<void(const Trade&)> trade_event_action;
         double tick_size = 0;
 
+        // toTicks normalizes a price (in price units) into the book's
+        // internal integer tick representation.
+        uint64_t toTicks(double price) const {
+            return static_cast<uint64_t>(price / tick_size);
+        }
+
         void fireTradeCallbacks(size_t from_index) {
             if (!trade_event_action) return;
             auto end = trades.size();
@@ -103,14 +109,14 @@ class OrderBook : public Exchange {
             }
         }
 
-        // convertOrderNodeToOrder converts an order node to an order that can be 
-        // returned to the caller.
+        // convertOrderNodeToOrder converts an order node to an order that can be
+        // returned to the caller. 
         Order convertOrderNodeToOrder(const OrderNode* order_node) {
             return Order{
                 .id = order_node->id,
                 .quantity = order_node->quantity,
                 .filled_quantity = order_node->filled_quantity,
-                .price = order_node->price,
+                .price = static_cast<double>(order_node->price) * tick_size,
                 .side = order_node->side,
                 .create_time = order_node->create_time,
                 .type = order_node->type
@@ -118,13 +124,13 @@ class OrderBook : public Exchange {
         }
 
         // convertOrderToOrderNode converts an order to an order node
-        // that can be rested on the order book.
+        // that can be rested on the order book. 
         OrderNode* convertOrderToOrderNode(const Order& order) {
             return new OrderNode{
                 .id = order.id,
                 .quantity = order.quantity,
                 .filled_quantity = order.filled_quantity,
-                .price = order.price,
+                .price = toTicks(order.price),
                 .side = order.side,
                 .create_time = order.create_time,
                 .type = order.type
@@ -241,11 +247,13 @@ class OrderBook : public Exchange {
 
         template<typename MapType>
         Order handleLimitOrder(Order& order, MapType& levels) {
+            auto order_price_ticks = toTicks(order.price);
+
             for ( auto level_it = levels.begin(); level_it != levels.end(); ) {
                 auto price = level_it->first;
                 auto& price_level = level_it->second;
 
-                if (!validPrice(order.price, order.side, price)) {
+                if (!validPrice(order_price_ticks, order.side, price)) {
                     break; // can't match any more levels, stop.
                 }
 
@@ -264,13 +272,13 @@ class OrderBook : public Exchange {
 
             if (order.quantity > 0 && order.side == Side::Buy) {
                 // add remaining quantity to bids side of book.
-                addOrderToBook(order, bids[order.price]);
-            } 
-            
+                addOrderToBook(order, bids[order_price_ticks]);
+            }
+
             if (order.quantity > 0 && order.side == Side::Sell) {
                 // add remaining quantity to asks side of book.
-                addOrderToBook(order, asks[order.price]);
-            } 
+                addOrderToBook(order, asks[order_price_ticks]);
+            }
 
             return order;
         }
@@ -310,22 +318,22 @@ class OrderBook : public Exchange {
             return order;
         }
 
-        uint64_t GetBestBid() const override {
+        double GetBestBid() const override {
             if (bids.empty()) {
-                return 0;
+                return 0.0;
             }
 
-            // return highest val as best.
-            return bids.begin()->first;
+            // return highest val as best, denormalized to price units.
+            return static_cast<double>(bids.begin()->first) * tick_size;
         }
 
-        uint64_t GetBestAsk() const override {
+        double GetBestAsk() const override {
             if (asks.empty()) {
-                return 0;
+                return 0.0;
             }
 
-            // return lowest val as best.
-            return asks.begin()->first;
+            // return lowest val as best, denormalized to price units.
+            return static_cast<double>(asks.begin()->first) * tick_size;
         }
 
         // CancelOrder cancels the order with the given order id and
@@ -363,7 +371,7 @@ class OrderBook : public Exchange {
             trade_event_action = action;
         }
 
-        double GetTickSize() const {
+        double GetTickSize() const override {
             return tick_size;
         }
 

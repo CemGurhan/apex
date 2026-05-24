@@ -15,7 +15,7 @@ struct Order {
     uint64_t id;
     uint64_t quantity;
     uint64_t filled_quantity = 0;
-    uint64_t price;
+    double price;
     Side side;
     uint64_t create_time;
     OrderType type;
