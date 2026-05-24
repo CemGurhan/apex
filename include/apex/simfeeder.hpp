@@ -44,6 +44,8 @@ class SimulatedFeeder : EventFeeder {
 
         double fair_price;
 
+        std::jthread runner_thread;
+
         void generate_market_order(
             std::bernoulli_distribution side_dist,
             std::exponential_distribution<double> order_qty_size,
@@ -111,7 +113,7 @@ class SimulatedFeeder : EventFeeder {
             };
         }
 
-        void seedRandomFairPrice(std::stop_token stop) {
+        void run(std::stop_token stop) {
             std::mt19937 rng(std::random_device{}()); // mersenne twister random number generator
 
             // We take a normal distribution here to follow the idea that prices move
@@ -148,11 +150,11 @@ class SimulatedFeeder : EventFeeder {
 
     public:
         void Run() override {
-
+            runner_thread = std::jthread([this](std::stop_token stop) {run(stop);});
         }
 
         void Stop() override {
-
+            runner_thread.request_stop();
         }
 
         SimulatedFeeder(
@@ -163,5 +165,6 @@ class SimulatedFeeder : EventFeeder {
         client{client}, 
         client_id{order_id_range.first - 1},
         fair_price{starting_fair_price},
-        order_id_range{order_id_range} {};
+        order_id_range{order_id_range}
+        {};
 };
