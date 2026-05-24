@@ -10,16 +10,16 @@ namespace {
 
 using namespace std::chrono_literals;
 
-Order MakeLimitBuy(uint64_t id, double price, uint64_t qty) {
-    return Order{id, qty, 0, price, Side::Buy, 0, OrderType::Limit};
+Order MakeLimitBuy(uint64_t client_id, double price, uint64_t qty) {
+    return Order{client_id, qty, 0, price, Side::Buy, 0, OrderType::Limit};
 }
 
-Order MakeLimitSell(uint64_t id, double price, uint64_t qty) {
-    return Order{id, qty, 0, price, Side::Sell, 0, OrderType::Limit};
+Order MakeLimitSell(uint64_t client_id, double price, uint64_t qty) {
+    return Order{client_id, qty, 0, price, Side::Sell, 0, OrderType::Limit};
 }
 
-Order MakeMarketBuy(uint64_t id, uint64_t qty) {
-    return Order{id, qty, 0, 0.0, Side::Buy, 0, OrderType::Market};
+Order MakeMarketBuy(uint64_t client_id, uint64_t qty) {
+    return Order{client_id, qty, 0, 0.0, Side::Buy, 0, OrderType::Market};
 }
 
 OrderBookEvent LimitEvent(Order order) {
@@ -30,11 +30,11 @@ OrderBookEvent MarketEvent(Order order) {
     return OrderBookEvent{OrderBookEventType::MarketOrder, order};
 }
 
-// CancelEvent only needs the order id populated.
-OrderBookEvent CancelEvent(uint64_t order_id) {
+// CancelEvent only needs the client_id populated.
+OrderBookEvent CancelEvent(uint64_t client_id) {
     return OrderBookEvent{
         OrderBookEventType::CancelOrder,
-        Order{order_id, 0, 0, 0.0, Side::Buy, 0, OrderType::Limit},
+        Order{client_id, 0, 0, 0.0, Side::Buy, 0, OrderType::Limit},
     };
 }
 
@@ -123,8 +123,8 @@ TEST(OrderBookClient, MarketOrderEventFillsRestedLimit) {
 
     EXPECT_EQ(book.GetBestAsk(), 0);
     std::lock_guard lock(mu);
-    EXPECT_EQ(captured.taker_order_id, 2);
-    EXPECT_EQ(captured.maker_order_id, 1);
+    EXPECT_EQ(captured.taker_client_id, 2);
+    EXPECT_EQ(captured.maker_client_id, 1);
     EXPECT_EQ(captured.filled_quantity, 10);
     EXPECT_EQ(captured.price, 100);
 }
@@ -176,9 +176,9 @@ TEST(OrderBookClient, ProcessesMixedEventsInFIFO) {
 
     std::lock_guard lock(mu);
     ASSERT_EQ(captured.size(), 3u);
-    EXPECT_EQ(captured[0].maker_order_id, 1);
-    EXPECT_EQ(captured[1].maker_order_id, 2);
-    EXPECT_EQ(captured[2].maker_order_id, 3);
+    EXPECT_EQ(captured[0].maker_client_id, 1);
+    EXPECT_EQ(captured[1].maker_client_id, 2);
+    EXPECT_EQ(captured[2].maker_client_id, 3);
     EXPECT_EQ(captured[0].price, 100);
     EXPECT_EQ(captured[1].price, 101);
     EXPECT_EQ(captured[2].price, 102);

@@ -3,20 +3,20 @@
 
 namespace {
 
-Order MakeLimitBuy(uint64_t id, double price, uint64_t qty) {
-    return Order{id, qty, 0, price, Side::Buy, 0, OrderType::Limit};
+Order MakeLimitBuy(uint64_t client_id, double price, uint64_t qty) {
+    return Order{client_id, qty, 0, price, Side::Buy, 0, OrderType::Limit};
 }
 
-Order MakeLimitSell(uint64_t id, double price, uint64_t qty) {
-    return Order{id, qty, 0, price, Side::Sell, 0, OrderType::Limit};
+Order MakeLimitSell(uint64_t client_id, double price, uint64_t qty) {
+    return Order{client_id, qty, 0, price, Side::Sell, 0, OrderType::Limit};
 }
 
-Order MakeMarketBuy(uint64_t id, uint64_t qty) {
-    return Order{id, qty, 0, 0.0, Side::Buy, 0, OrderType::Market};
+Order MakeMarketBuy(uint64_t client_id, uint64_t qty) {
+    return Order{client_id, qty, 0, 0.0, Side::Buy, 0, OrderType::Market};
 }
 
-Order MakeMarketSell(uint64_t id, uint64_t qty) {
-    return Order{id, qty, 0, 0.0, Side::Sell, 0, OrderType::Market};
+Order MakeMarketSell(uint64_t client_id, uint64_t qty) {
+    return Order{client_id, qty, 0, 0.0, Side::Sell, 0, OrderType::Market};
 }
 
 
@@ -305,7 +305,7 @@ TEST(CancelOrder, CancelRestingBidReturnsOrderSnapshot) {
     auto cancelled = book.CancelOrder(1);
 
     ASSERT_TRUE(cancelled.has_value());
-    EXPECT_EQ(cancelled->id, 1);
+    EXPECT_EQ(cancelled->client_id, 1);
     EXPECT_EQ(cancelled->price, 100);
     EXPECT_EQ(cancelled->quantity, 10);
     EXPECT_EQ(cancelled->filled_quantity, 0);
@@ -319,7 +319,7 @@ TEST(CancelOrder, CancelRestingAskReturnsOrderSnapshot) {
     auto cancelled = book.CancelOrder(1);
 
     ASSERT_TRUE(cancelled.has_value());
-    EXPECT_EQ(cancelled->id, 1);
+    EXPECT_EQ(cancelled->client_id, 1);
     EXPECT_EQ(cancelled->price, 100);
     EXPECT_EQ(cancelled->quantity, 10);
     EXPECT_EQ(cancelled->side, Side::Sell);
@@ -471,8 +471,8 @@ TEST(TradeEventAction, CallbackReceivesCorrectTradeFields) {
     book.AddLimitOrder(MakeLimitBuy(2, 100, 10));
 
     ASSERT_EQ(captured.size(), 1);
-    EXPECT_EQ(captured[0].taker_order_id, 2);
-    EXPECT_EQ(captured[0].maker_order_id, 1);
+    EXPECT_EQ(captured[0].taker_client_id, 2);
+    EXPECT_EQ(captured[0].maker_client_id, 1);
     EXPECT_EQ(captured[0].price, 100);
     EXPECT_EQ(captured[0].filled_quantity, 10);
     EXPECT_EQ(captured[0].sequence_number, 0);
@@ -504,15 +504,15 @@ TEST(TradeEventAction, InvokedOncePerTradeAcrossMultipleLevels) {
     ASSERT_EQ(captured.size(), 3);
 
     EXPECT_EQ(captured[0].price, 100);
-    EXPECT_EQ(captured[0].maker_order_id, 1);
+    EXPECT_EQ(captured[0].maker_client_id, 1);
     EXPECT_EQ(captured[0].filled_quantity, 5);
 
     EXPECT_EQ(captured[1].price, 101);
-    EXPECT_EQ(captured[1].maker_order_id, 2);
+    EXPECT_EQ(captured[1].maker_client_id, 2);
     EXPECT_EQ(captured[1].filled_quantity, 5);
 
     EXPECT_EQ(captured[2].price, 102);
-    EXPECT_EQ(captured[2].maker_order_id, 3);
+    EXPECT_EQ(captured[2].maker_client_id, 3);
     EXPECT_EQ(captured[2].filled_quantity, 5);
 }
 
@@ -539,8 +539,8 @@ TEST(TradeEventAction, MarketOrderTriggersCallback) {
     book.AddMarketOrder(MakeMarketBuy(2, 10));
 
     ASSERT_EQ(captured.size(), 1);
-    EXPECT_EQ(captured[0].taker_order_id, 2);
-    EXPECT_EQ(captured[0].maker_order_id, 1);
+    EXPECT_EQ(captured[0].taker_client_id, 2);
+    EXPECT_EQ(captured[0].maker_client_id, 1);
     EXPECT_EQ(captured[0].price, 100);
     EXPECT_EQ(captured[0].filled_quantity, 10);
 }
@@ -580,10 +580,10 @@ TEST(TradeEventAction, FIFOWithinLevelFiresCallbackPerFill) {
     book.AddLimitOrder(MakeLimitBuy(3, 100, 10));
 
     ASSERT_EQ(captured.size(), 2);
-    EXPECT_EQ(captured[0].maker_order_id, 1);
-    EXPECT_EQ(captured[1].maker_order_id, 2);
-    EXPECT_EQ(captured[0].taker_order_id, 3);
-    EXPECT_EQ(captured[1].taker_order_id, 3);
+    EXPECT_EQ(captured[0].maker_client_id, 1);
+    EXPECT_EQ(captured[1].maker_client_id, 2);
+    EXPECT_EQ(captured[0].taker_client_id, 3);
+    EXPECT_EQ(captured[1].taker_client_id, 3);
 }
 
 } 

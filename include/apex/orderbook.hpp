@@ -11,12 +11,15 @@
 #include <atomic>
 #include "exchange.hpp"
 
-// OrderNode represents an order resting at a 
+// OrderNode represents an order resting at a
 // price level in the orderbook.
 struct OrderNode {
     OrderNode* next = nullptr;
     OrderNode* prev = nullptr;
+    // id is the orderbook's own internal identifier, assigned on rest.
     uint64_t id;
+    // client_id is the identifier the submitting client set on the order.
+    uint64_t client_id;
     uint64_t quantity;
     uint64_t filled_quantity = 0;
     uint64_t price;
@@ -38,7 +41,8 @@ class OrderBook : public Exchange {
         std::map<uint64_t, PriceLevel> asks;
         std::deque<Trade> trades; // queue of trades processed in this book. Processed by background routine for post-trade.
         std::atomic<uint64_t> trade_sequence_number{0}; // sequence number for trades, incremented on each new trade.
-        std::unordered_map<uint64_t, OrderNode*> order_id_to_node; 
+        std::atomic<uint64_t> next_order_id{1};               // assigns each rested order a book-internal id
+        std::unordered_map<uint64_t, OrderNode*> client_id_to_node; // keyed by client_id for cancel lookups
         std::function<void(const Trade&)> trade_event_action;
         double tick_size = 0;
 
@@ -59,8 +63,8 @@ class OrderBook : public Exchange {
         void emitTrade(
             uint64_t fill_quantity,
             uint64_t price,
-            uint64_t taker_order_id,
-            uint64_t maker_order_id,
+            uint64_t taker_client_id,
+            uint64_t maker_client_id,
             Side side
         ) {
             if (fill_quantity == 0) {
@@ -75,8 +79,8 @@ class OrderBook : public Exchange {
 
             trades.emplace_back(
                 Trade {
-                    .taker_order_id = taker_order_id,
-                    .maker_order_id = maker_order_id,
+                    .taker_client_id = taker_client_id,
+                    .maker_client_id = maker_client_id,
                     .price = price,
                     .filled_quantity = fill_quantity,
                     .create_time = time_now,
@@ -97,7 +101,7 @@ class OrderBook : public Exchange {
                 order.filled_quantity += order.quantity;
                 order.quantity = 0; // fully filled
 
-                emitTrade(order_qty, price, order.id, resting_order->id, order.side);
+                emitTrade(order_qty, price, order.client_id, resting_order->client_id, order.side);
             } else if (resting_order_qty <= order.quantity) {
                 order.quantity -= resting_order_qty;
                 order.filled_quantity += resting_order_qty;
@@ -105,15 +109,15 @@ class OrderBook : public Exchange {
                 resting_order->filled_quantity += resting_order_qty;
                 resting_order->quantity = 0; // fully filled
 
-                emitTrade(resting_order_qty, price, order.id, resting_order->id, order.side);
+                emitTrade(resting_order_qty, price, order.client_id, resting_order->client_id, order.side);
             }
         }
 
         // convertOrderNodeToOrder converts an order node to an order that can be
-        // returned to the caller. 
+        // returned to the caller.
         Order convertOrderNodeToOrder(const OrderNode* order_node) {
             return Order{
-                .id = order_node->id,
+                .client_id = order_node->client_id,
                 .quantity = order_node->quantity,
                 .filled_quantity = order_node->filled_quantity,
                 .price = static_cast<double>(order_node->price) * tick_size,
@@ -124,10 +128,15 @@ class OrderBook : public Exchange {
         }
 
         // convertOrderToOrderNode converts an order to an order node
-        // that can be rested on the order book. 
+        // that can be rested on the order book. The node's internal id is
+        // assigned from the book's atomic counter; the order's client_id is
+        // preserved on the node for client-facing lookups (cancel, trades).
         OrderNode* convertOrderToOrderNode(const Order& order) {
             return new OrderNode{
-                .id = order.id,
+                .next = nullptr,
+                .prev = nullptr,
+                .id = next_order_id.fetch_add(1, std::memory_order_relaxed),
+                .client_id = order.client_id,
                 .quantity = order.quantity,
                 .filled_quantity = order.filled_quantity,
                 .price = toTicks(order.price),
@@ -137,10 +146,10 @@ class OrderBook : public Exchange {
             };
         }
 
-        // removeOrderFromLevel removes the given order node from the given price level 
+        // removeOrderFromLevel removes the given order node from the given price level
         // and returns the next order in the level.
         OrderNode* removeOrderFromLevel(OrderNode* order_node, PriceLevel& price_level) {
-            order_id_to_node.erase(order_node->id);
+            client_id_to_node.erase(order_node->client_id);
 
             auto prev = order_node->prev;
             auto next = order_node->next;
@@ -225,12 +234,12 @@ class OrderBook : public Exchange {
                 tail->next = order;
                 order->prev = tail;
                 price_level.tail = order; // update tail of this level.
-                order_id_to_node[order->id] = order; 
+                client_id_to_node[order->client_id] = order;
                 return;
-            } 
-            
+            }
+
             price_level = {order, order};
-            order_id_to_node[order->id] = order; 
+            client_id_to_node[order->client_id] = order;
         }
 
         // validPrice returns true if the price is valid for this order.
@@ -336,13 +345,13 @@ class OrderBook : public Exchange {
             return static_cast<double>(asks.begin()->first) * tick_size;
         }
 
-        // CancelOrder cancels the order with the given order id and
+        // CancelOrder cancels the order with the given client_id and
         // returns the cancelled order. If the order was not found,
         // returns nullopt.
-        std::optional<Order> CancelOrder(uint64_t order_id) override {
-            auto it = order_id_to_node.find(order_id);
+        std::optional<Order> CancelOrder(uint64_t client_id) override {
+            auto it = client_id_to_node.find(client_id);
 
-            if (it == order_id_to_node.end()) {
+            if (it == client_id_to_node.end()) {
                 return std::nullopt;
             }
             

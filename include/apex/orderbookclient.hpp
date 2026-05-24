@@ -21,7 +21,7 @@ class OrderBookClient {
                     book.AddLimitOrder(event.order);
                     break;
                 case OrderBookEventType::CancelOrder:
-                    book.CancelOrder(event.order.id);
+                    book.CancelOrder(event.order.client_id);
                     break;
             }
         }

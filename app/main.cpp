@@ -6,7 +6,7 @@
 
 // seedBook populates the orderbook with some initial limit orders 
 // to create a market for the market maker to operate in.
-void seedBook(OrderBook& book, int rng_seed, uint64_t seed_id) {
+void seedBook(OrderBook& book, int rng_seed, uint64_t seed_client_id) {
     std::mt19937 rng(rng_seed);
     std::uniform_int_distribution<uint64_t> mkt_qty_dist(1, 20);
 
@@ -14,13 +14,13 @@ void seedBook(OrderBook& book, int rng_seed, uint64_t seed_id) {
 
     for (uint64_t price = 90; price <= 98; price++) {
         book.AddLimitOrder(Order{
-            .id = seed_id++, .quantity = qty, .price = static_cast<double>(price),
+            .client_id = seed_client_id++, .quantity = qty, .price = static_cast<double>(price),
             .side = Side::Buy, .type = OrderType::Limit
         });
     }
     for (uint64_t price = 102; price <= 110; price++) {
         book.AddLimitOrder(Order{
-            .id = seed_id++, .quantity = qty, .price = static_cast<double>(price),
+            .client_id = seed_client_id++, .quantity = qty, .price = static_cast<double>(price),
             .side = Side::Sell, .type = OrderType::Limit
         });
     }
@@ -52,7 +52,7 @@ void printResult(int round, Side side, uint64_t qty, const Order& result,
               << trade_count << "\n";
 }
 
-void runMarketMaker(OrderBook& book, int rng_seed, int seed_id) {
+void runMarketMaker(OrderBook& book, int rng_seed, uint64_t seed_id) {
     // our overall spread between bid and ask offers.
     uint64_t spread = 1;
     // Factor that helps decide to how far from fair we should move.
@@ -63,7 +63,7 @@ void runMarketMaker(OrderBook& book, int rng_seed, int seed_id) {
     std::mt19937 rng(rng_seed);
     std::uniform_int_distribution<int> side_dist(0, 1);
     std::uniform_int_distribution<uint64_t> mkt_qty_dist(1, 20);
-    uint64_t order_id = 100000;
+    uint64_t order_client_id = 100000;
 
     printColumnTitles();
 
@@ -76,7 +76,7 @@ void runMarketMaker(OrderBook& book, int rng_seed, int seed_id) {
         auto qty = mkt_qty_dist(rng);
 
         auto result = book.AddMarketOrder(Order{
-            .id = order_id++, .quantity = qty,
+            .client_id = order_client_id++, .quantity = qty,
             .side = side, .type = OrderType::Market
         });
 
@@ -95,11 +95,11 @@ int main() {
     OrderBook book = OrderBook(tick_size);
 
     auto rng_seed = 42;
-    auto seed_id = 500000;
+    uint64_t seed_client_id = 500000;
 
-    seedBook(book, ++rng_seed, seed_id);
-    seed_id += 100;
-    runMarketMaker(book, ++rng_seed, seed_id);
-    
+    seedBook(book, ++rng_seed, seed_client_id);
+    seed_client_id += 100;
+    runMarketMaker(book, ++rng_seed, seed_client_id);
+
     return 0;
 }

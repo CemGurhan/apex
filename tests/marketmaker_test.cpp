@@ -4,17 +4,17 @@
 
 namespace {
 
-// Seed IDs start high to avoid collisions with MarketMaker's internal counter.
+// Seed client IDs start high to avoid collisions with MarketMaker's internal counter.
 constexpr uint64_t SEED_BID_ID = 10000;
 constexpr uint64_t SEED_ASK_ID = 10001;
 
 void SeedBook(OrderBook& book, double bid_price, uint64_t bid_qty, double ask_price, uint64_t ask_qty) {
     book.AddLimitOrder(Order{
-        .id = SEED_BID_ID, .quantity = bid_qty, .price = bid_price,
+        .client_id = SEED_BID_ID, .quantity = bid_qty, .price = bid_price,
         .side = Side::Buy, .type = OrderType::Limit
     });
     book.AddLimitOrder(Order{
-        .id = SEED_ASK_ID, .quantity = ask_qty, .price = ask_price,
+        .client_id = SEED_ASK_ID, .quantity = ask_qty, .price = ask_price,
         .side = Side::Sell, .type = OrderType::Limit
     });
 }
@@ -60,7 +60,7 @@ TEST(MarketMaker, StartIsNoOpOnEmptyBook) {
 TEST(MarketMaker, StartUsesAskAsFairWhenNoBids) {
     OrderBook book(1.0);
     book.AddLimitOrder(Order{
-        .id = SEED_ASK_ID, .quantity = 100, .price = 150,
+        .client_id = SEED_ASK_ID, .quantity = 100, .price = 150,
         .side = Side::Sell, .type = OrderType::Limit
     });
 
@@ -75,7 +75,7 @@ TEST(MarketMaker, StartUsesAskAsFairWhenNoBids) {
 TEST(MarketMaker, StartUsesBidAsFairWhenNoAsks) {
     OrderBook book(1.0);
     book.AddLimitOrder(Order{
-        .id = SEED_BID_ID, .quantity = 100, .price = 50,
+        .client_id = SEED_BID_ID, .quantity = 100, .price = 50,
         .side = Side::Buy, .type = OrderType::Limit
     });
 
@@ -100,7 +100,7 @@ TEST(MarketMaker, FilledBidAtMaxInventoryOnlyQuotesAsk) {
 
     // External sell fills MM's bid
     book.AddLimitOrder(Order{
-        .id = 20000, .quantity = 5, .price = 95,
+        .client_id = 20000, .quantity = 5, .price = 95,
         .side = Side::Sell, .type = OrderType::Limit
     });
 
@@ -118,7 +118,7 @@ TEST(MarketMaker, FilledAskAtMaxInventoryOnlyQuotesBid) {
 
     // External buy fills MM's ask
     book.AddLimitOrder(Order{
-        .id = 20000, .quantity = 5, .price = 105,
+        .client_id = 20000, .quantity = 5, .price = 105,
         .side = Side::Buy, .type = OrderType::Limit
     });
 
@@ -137,7 +137,7 @@ TEST(MarketMaker, FilledBidCancelsAskLeg) {
 
     // Fill the bid → callback cancels ask leg, replaces quotes
     book.AddLimitOrder(Order{
-        .id = 20000, .quantity = 5, .price = 95,
+        .client_id = 20000, .quantity = 5, .price = 95,
         .side = Side::Sell, .type = OrderType::Limit
     });
 
@@ -157,7 +157,7 @@ TEST(MarketMaker, FilledAskCancelsBidLeg) {
 
     // Fill the ask → callback cancels bid leg, replaces quotes
     book.AddLimitOrder(Order{
-        .id = 20000, .quantity = 5, .price = 105,
+        .client_id = 20000, .quantity = 5, .price = 105,
         .side = Side::Buy, .type = OrderType::Limit
     });
 
@@ -178,7 +178,7 @@ TEST(MarketMaker, SkewShiftsQuotesDownWhenLong) {
 
     // Fill the bid → inventory=5
     book.AddLimitOrder(Order{
-        .id = 20000, .quantity = 5, .price = 95,
+        .client_id = 20000, .quantity = 5, .price = 95,
         .side = Side::Sell, .type = OrderType::Limit
     });
 
@@ -197,7 +197,7 @@ TEST(MarketMaker, SkewShiftsQuotesUpWhenShort) {
 
     // Fill the ask → inventory=-5
     book.AddLimitOrder(Order{
-        .id = 20000, .quantity = 5, .price = 105,
+        .client_id = 20000, .quantity = 5, .price = 105,
         .side = Side::Buy, .type = OrderType::Limit
     });
 
@@ -214,11 +214,11 @@ TEST(MarketMaker, TickSizeTruncatesNonAlignedQuotePrices) {
     // Seeds bracket the MM quotes so MM wins both legs.
     // Seed bid price=10 (tick 1), seed ask price=190 (tick 19).
     book.AddLimitOrder(Order{
-        .id = SEED_BID_ID, .quantity = 100, .price = 10,
+        .client_id = SEED_BID_ID, .quantity = 100, .price = 10,
         .side = Side::Buy, .type = OrderType::Limit
     });
     book.AddLimitOrder(Order{
-        .id = SEED_ASK_ID, .quantity = 100, .price = 190,
+        .client_id = SEED_ASK_ID, .quantity = 100, .price = 190,
         .side = Side::Sell, .type = OrderType::Limit
     });
 
@@ -239,11 +239,11 @@ TEST(MarketMaker, RequoteUsesAskAsFairWhenBidsDepleted) {
     OrderBook book(1.0);
     // Thin bid side: seed qty=5, MM will add qty=5
     book.AddLimitOrder(Order{
-        .id = SEED_BID_ID, .quantity = 5, .price = 50,
+        .client_id = SEED_BID_ID, .quantity = 5, .price = 50,
         .side = Side::Buy, .type = OrderType::Limit
     });
     book.AddLimitOrder(Order{
-        .id = SEED_ASK_ID, .quantity = 100, .price = 150,
+        .client_id = SEED_ASK_ID, .quantity = 100, .price = 150,
         .side = Side::Sell, .type = OrderType::Limit
     });
 
@@ -253,7 +253,7 @@ TEST(MarketMaker, RequoteUsesAskAsFairWhenBidsDepleted) {
 
     // External sell consumes MM bid (5) + seed bid (5) → bids depleted
     book.AddLimitOrder(Order{
-        .id = 20000, .quantity = 10, .price = 50,
+        .client_id = 20000, .quantity = 10, .price = 50,
         .side = Side::Sell, .type = OrderType::Limit
     });
 
@@ -265,12 +265,12 @@ TEST(MarketMaker, RequoteUsesAskAsFairWhenBidsDepleted) {
 TEST(MarketMaker, RequoteUsesBidAsFairWhenAsksDepleted) {
     OrderBook book(1.0);
     book.AddLimitOrder(Order{
-        .id = SEED_BID_ID, .quantity = 100, .price = 50,
+        .client_id = SEED_BID_ID, .quantity = 100, .price = 50,
         .side = Side::Buy, .type = OrderType::Limit
     });
     // Thin ask side: seed qty=5, MM will add qty=5
     book.AddLimitOrder(Order{
-        .id = SEED_ASK_ID, .quantity = 5, .price = 150,
+        .client_id = SEED_ASK_ID, .quantity = 5, .price = 150,
         .side = Side::Sell, .type = OrderType::Limit
     });
 
@@ -280,7 +280,7 @@ TEST(MarketMaker, RequoteUsesBidAsFairWhenAsksDepleted) {
 
     // External buy consumes MM ask (5) + seed ask (5) → asks depleted
     book.AddLimitOrder(Order{
-        .id = 20000, .quantity = 10, .price = 150,
+        .client_id = 20000, .quantity = 10, .price = 150,
         .side = Side::Buy, .type = OrderType::Limit
     });
 
@@ -302,7 +302,7 @@ TEST(MarketMaker, ConsecutiveFillsAccumulateInventory) {
 
     // First fill: buy → inventory=5
     book.AddLimitOrder(Order{
-        .id = 20000, .quantity = 5, .price = 95,
+        .client_id = 20000, .quantity = 5, .price = 95,
         .side = Side::Sell, .type = OrderType::Limit
     });
     // fair = 100 - 5 = 95, bid=90, ask=100
@@ -311,7 +311,7 @@ TEST(MarketMaker, ConsecutiveFillsAccumulateInventory) {
 
     // Second fill: buy again → inventory=10
     book.AddLimitOrder(Order{
-        .id = 20001, .quantity = 5, .price = 90,
+        .client_id = 20001, .quantity = 5, .price = 90,
         .side = Side::Sell, .type = OrderType::Limit
     });
     // fair = 100 - 10 = 90, bid=85, ask=95

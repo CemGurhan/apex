@@ -7,8 +7,8 @@
 
 class MarketMaker {
     private:
-        std::optional<uint64_t> active_bid_id;
-        std::optional<uint64_t> active_ask_id;
+        std::optional<uint64_t> active_bid_client_id;
+        std::optional<uint64_t> active_ask_client_id;
 
         Exchange& exchange;
         // base_spread is the minimum spread width. Can be widened or tightened 
@@ -25,7 +25,9 @@ class MarketMaker {
         // negative means short.
         int64_t inventory = 0;
 
-        uint64_t id = 1;
+        // client_id_counter generates unique client-side IDs for each quote
+        // the market maker places. The orderbook tracks its own internal IDs.
+        uint64_t client_id_counter = 1;
 
         // getSpreadPrices returns the bid/ask price doubles to place around fair.
         // Returns {0, 0} when the book is empty. 
@@ -62,10 +64,10 @@ class MarketMaker {
         }
 
         void placeQuotes() {
-            if (active_bid_id) exchange.CancelOrder(*active_bid_id);
-            if (active_ask_id) exchange.CancelOrder(*active_ask_id);
-            active_bid_id = std::nullopt;
-            active_ask_id = std::nullopt;
+            if (active_bid_client_id) exchange.CancelOrder(*active_bid_client_id);
+            if (active_ask_client_id) exchange.CancelOrder(*active_ask_client_id);
+            active_bid_client_id = std::nullopt;
+            active_ask_client_id = std::nullopt;
 
             auto [bid_price, ask_price] = getSpreadPrices();
             auto order_qty_i64 = static_cast<int64_t>(order_quantity);
@@ -77,21 +79,21 @@ class MarketMaker {
                 throw std::runtime_error("Cannot place quotes: no bids or asks in the book");
             }
 
-            uint64_t id_bid = 0;
-            uint64_t id_ask = 0;
+            uint64_t bid_client_id = 0;
+            uint64_t ask_client_id = 0;
             if (!too_long && !too_short) {
-                id_bid = id++;
-                id_ask = id++;
+                bid_client_id = client_id_counter++;
+                ask_client_id = client_id_counter++;
             } else if (!too_long) {
-                id_bid = id++;
+                bid_client_id = client_id_counter++;
             } else if (!too_short) {
-                id_ask = id++;
+                ask_client_id = client_id_counter++;
             }
 
             if (!too_long) {
-                active_bid_id = id_bid;
+                active_bid_client_id = bid_client_id;
                 exchange.AddLimitOrder(Order{
-                    .id = id_bid,
+                    .client_id = bid_client_id,
                     .quantity = order_quantity,
                     .price = bid_price,
                     .side = Side::Buy,
@@ -100,9 +102,9 @@ class MarketMaker {
             }
 
             if (!too_short) {
-                active_ask_id = id_ask;
+                active_ask_client_id = ask_client_id;
                 exchange.AddLimitOrder(Order{
-                    .id = id_ask,
+                    .client_id = ask_client_id,
                     .quantity = order_quantity,
                     .price = ask_price,
                     .side = Side::Sell,
@@ -112,27 +114,27 @@ class MarketMaker {
         }
 
         void tradeEventAction(const Trade& trade) {
-            auto is_bid_taker = active_bid_id.has_value() && trade.taker_order_id == active_bid_id.value();
-            auto is_ask_taker = active_ask_id.has_value() && trade.taker_order_id == active_ask_id.value();
+            auto is_bid_taker = active_bid_client_id.has_value() && trade.taker_client_id == active_bid_client_id.value();
+            auto is_ask_taker = active_ask_client_id.has_value() && trade.taker_client_id == active_ask_client_id.value();
 
-            auto is_bid_maker = active_bid_id.has_value() && trade.maker_order_id == active_bid_id.value();
-            auto is_ask_maker = active_ask_id.has_value() && trade.maker_order_id == active_ask_id.value();
+            auto is_bid_maker = active_bid_client_id.has_value() && trade.maker_client_id == active_bid_client_id.value();
+            auto is_ask_maker = active_ask_client_id.has_value() && trade.maker_client_id == active_ask_client_id.value();
 
-            uint64_t id_leg1 = 0;
+            uint64_t our_client_id = 0;
             if (is_ask_taker || is_bid_taker) {
-               id_leg1 = trade.taker_order_id;
-            } else if (is_ask_maker || is_bid_maker) {                
-                id_leg1 = trade.maker_order_id;
+               our_client_id = trade.taker_client_id;
+            } else if (is_ask_maker || is_bid_maker) {
+                our_client_id = trade.maker_client_id;
             } else {
                 return; // trade doesn't involve one of our quotes, ignore
             }
 
             auto fill_quantity = trade.filled_quantity;
-            if (id_leg1 == active_bid_id) { // we bought
+            if (our_client_id == active_bid_client_id) { // we bought
                 inventory += static_cast<int64_t>(fill_quantity);
-            } else if (id_leg1 == active_ask_id) { // we sold
+            } else if (our_client_id == active_ask_client_id) { // we sold
                 inventory -= static_cast<int64_t>(fill_quantity);
-            }   
+            }
 
             try {
                 placeQuotes();
