@@ -1,11 +1,13 @@
 #include "feeder.hpp"
 #include <random>
-#include "orderbook.hpp"
 #include <thread>
 #include "side.hpp"
+#include "orderbookclient.hpp"
 
 class SimulatedFeeder : EventFeeder {
     private:
+        OrderBookClient& client;
+
         // sigma controlshow volatile our market is, controlling how wide our swings can be 
         // when selecting a random price under a normal distribution. Higher sigma means 
         // more volatile movements.
@@ -21,6 +23,25 @@ class SimulatedFeeder : EventFeeder {
         // arrival_rate_lambda is used to determine how frequently orders arrive in our market. 
         // A higher value indicates more frequent order arrivals.
         int arrive_rate_lambada = 10;
+
+        OrderBookEvent generateOrderBookEvent(OrderBookEventType type, double price) {
+            static std::atomic<uint64_t> order_id{0};
+            return OrderBookEvent{
+                .type = type,
+                .order = Order{
+                    .id = order_id.fetch_add(1),
+                    .quantity = 100, // fixed quantity for now
+                    .price = price,
+                    .side = price > 100.0 ? Side::Sell : Side::Buy,
+                    .create_time = static_cast<uint64_t>(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()
+                        ).count()
+                    ),
+                    .type = type == OrderBookEventType::MarketOrder ? OrderType::Market : OrderType::Limit
+                }   
+            };
+        }
 
         void seedRandomFairPrice(std::stop_token stop) {
             auto fair_price = 100.0;
@@ -66,4 +87,6 @@ class SimulatedFeeder : EventFeeder {
         void Stop() override {
 
         }
+
+        SimulatedFeeder(OrderBookClient& client) : client{client} {};
 };
