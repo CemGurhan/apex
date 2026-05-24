@@ -44,6 +44,15 @@ class SimulatedFeeder : EventFeeder {
 
         double fair_price;
 
+        void generate_market_order(
+            std::bernoulli_distribution side_dist,
+            std::exponential_distribution<double> order_qty_size,
+            std::mt19937 rng
+        ) {
+            auto side = side_dist(rng) ? Side::Buy : Side::Sell;
+            generateOrderBookEvent(OrderBookEventType::MarketOrder, fair_price, side, order_qty_size, rng);
+        }
+
         void generateLimitOrder(
             std::exponential_distribution<double> offset_dist,
             std::bernoulli_distribution side_dist,
@@ -129,6 +138,8 @@ class SimulatedFeeder : EventFeeder {
 
             while(!stop.stop_requested()) {
                 generateLimitOrder(offset_dist, side_dist, fair_price_dist, aggressive, order_qty_size, rng);
+
+                generate_market_order(side_dist, order_qty_size, rng);
 
                 auto sleep_time = arrival_dist(rng);
                 std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(sleep_time)));
