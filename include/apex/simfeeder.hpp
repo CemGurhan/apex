@@ -37,10 +37,9 @@ struct DistConfig {
     // E.g. 0.1 indicates that 10% of the time, we place an aggressive order.
     double aggressive_prob = 0.1;
 
-    // market_order_prob is used to determine the ratio of market orders to limit orders
-    // via a bernoulli distribution.
-    // E.g. 0.3 indicates that 30% of the time, we place a market order.
-    double market_order_prob = 0.3;
+    double market_order_prob = 0.1;
+    double cancel_order_prob = 0.3;
+    double limit_order_prob = 1 - market_order_prob - cancel_order_prob;
 };
 
 class SimulatedFeeder : EventFeeder {
@@ -69,9 +68,16 @@ class SimulatedFeeder : EventFeeder {
 
         std::bernoulli_distribution side_dist;
         std::bernoulli_distribution aggressive_dist;
-        std::bernoulli_distribution market_order_dist;
+
+        // order_place_dist is a discrete distribution of different probabilities that
+        // specific orders will be placed. 1 = market, 2 = limit, 3 = cancel.
+        std::discrete_distribution<int> order_place_dist;
 
         std::mt19937 rng; // mersenne twister random number generator
+
+        // active_order_ids tracks client IDs of resting limit orders we've placed,
+        // so we can pick one at random when generating a cancel.
+        std::vector<uint64_t> active_order_ids;
 
         std::pair<uint64_t, uint64_t> order_id_range = {1, 2048};
 
@@ -121,10 +127,14 @@ class SimulatedFeeder : EventFeeder {
             double price,
             Side side
         ) {
+            auto assigned_id = client_id.fetch_add(1);
+            if (type == OrderBookEventType::LimitOrder) {
+                active_order_ids.push_back(assigned_id);
+            }
             client.Write(OrderBookEvent{
                 .type = type,
                 .order = Order{
-                    .client_id = client_id.fetch_add(1),
+                    .client_id = assigned_id,
                     .quantity = static_cast<uint64_t>(order_qty_size(rng)) + 1,
                     .price = price,
                     .side = side,
@@ -138,12 +148,42 @@ class SimulatedFeeder : EventFeeder {
             });
         }
 
+        void generateCancelOrder() {
+            if (active_order_ids.empty()) {
+                return;
+            }
+
+            std::uniform_int_distribution<size_t> idx_dist(0, active_order_ids.size() - 1);
+            auto idx = idx_dist(rng);
+            auto cancel_id = active_order_ids[idx];
+
+            // swap with back and pop for O(1) removal
+            active_order_ids[idx] = active_order_ids.back();
+            active_order_ids.pop_back();
+
+            client.Write(OrderBookEvent{
+                .type = OrderBookEventType::CancelOrder,
+                .order = Order{
+                    .client_id = cancel_id,
+                    .quantity = 0,
+                    .price = 0.0,
+                    .side = Side::Buy,
+                    .create_time = 0,
+                    .type = OrderType::Limit
+                }
+            });
+        }
+
         void run(std::stop_token stop) {
             while(!stop.stop_requested()) {
-                if (market_order_dist(rng)) {
+                int order_type = order_place_dist(rng);
+
+                if (order_type == 0) {
                     generateMarketOrder();
-                } else {
+                } else if (order_type == 1) {
                     generateLimitOrder();
+                } else {
+                    generateCancelOrder();
                 }
 
                 auto sleep_time = arrival_dist(rng);
@@ -174,7 +214,7 @@ class SimulatedFeeder : EventFeeder {
         order_qty_size(config.order_qty_size_lambda),
         side_dist(config.side_prob),
         aggressive_dist(config.aggressive_prob),
-        market_order_dist(config.market_order_prob),
+        order_place_dist({config.market_order_prob, config.limit_order_prob, config.cancel_order_prob}),
         rng(std::random_device{}()),
         client_id{static_cast<uint64_t>(order_id_range.first - 1)},
         fair_price{starting_fair_price},
