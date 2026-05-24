@@ -4,8 +4,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(apex app/main.cpp)
-target_include_directories(apex PRIVATE include)
+add_executable(apex app/main.cpp app/basic.cpp)
+target_include_directories(apex PRIVATE include app)
 
 if(APPLE)
     add_custom_command(TARGET apex POST_BUILD
