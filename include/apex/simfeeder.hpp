@@ -71,6 +71,8 @@ class SimulatedFeeder : EventFeeder {
         std::bernoulli_distribution aggressive_dist;
         std::bernoulli_distribution market_order_dist;
 
+        std::mt19937 rng; // mersenne twister random number generator
+
         std::pair<uint64_t, uint64_t> order_id_range = {1, 2048};
 
         std::atomic<uint64_t> client_id;
@@ -79,12 +81,12 @@ class SimulatedFeeder : EventFeeder {
 
         std::jthread runner_thread;
 
-        void generateMarketOrder(std::mt19937& rng) {
+        void generateMarketOrder() {
             auto side = side_dist(rng) ? Side::Buy : Side::Sell;
-            pushOrderBookEvent(OrderBookEventType::MarketOrder, fair_price, side, rng);
+            pushOrderBookEvent(OrderBookEventType::MarketOrder, fair_price, side);
         }
 
-        void generateLimitOrder(std::mt19937& rng) {
+        void generateLimitOrder() {
             // geometric brownian, not arithmetic, to keep +ve,
             // multiply fair price to get next val.
             fair_price *= std::exp(config.sigma * fair_price_dist(rng));
@@ -99,7 +101,7 @@ class SimulatedFeeder : EventFeeder {
             }
 
             if (order_price > 0) {
-                pushOrderBookEvent(OrderBookEventType::LimitOrder, std::abs(order_price), side, rng);
+                pushOrderBookEvent(OrderBookEventType::LimitOrder, std::abs(order_price), side);
             }
         }
 
@@ -117,8 +119,7 @@ class SimulatedFeeder : EventFeeder {
         void pushOrderBookEvent(
             OrderBookEventType type,
             double price,
-            Side side,
-            std::mt19937& rng
+            Side side
         ) {
             client.Write(OrderBookEvent{
                 .type = type,
@@ -138,13 +139,11 @@ class SimulatedFeeder : EventFeeder {
         }
 
         void run(std::stop_token stop) {
-            std::mt19937 rng(std::random_device{}()); // mersenne twister random number generator
-
             while(!stop.stop_requested()) {
                 if (market_order_dist(rng)) {
-                    generateMarketOrder(rng);
+                    generateMarketOrder();
                 } else {
-                    generateLimitOrder(rng);
+                    generateLimitOrder();
                 }
 
                 auto sleep_time = arrival_dist(rng);
@@ -176,6 +175,7 @@ class SimulatedFeeder : EventFeeder {
         side_dist(config.side_prob),
         aggressive_dist(config.aggressive_prob),
         market_order_dist(config.market_order_prob),
+        rng(std::random_device{}()),
         client_id{static_cast<uint64_t>(order_id_range.first - 1)},
         fair_price{starting_fair_price},
         order_id_range{static_cast<uint64_t>(order_id_range.first), static_cast<uint64_t>(order_id_range.second)}
