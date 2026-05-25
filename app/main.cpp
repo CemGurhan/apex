@@ -1,13 +1,13 @@
 #include <iostream>
 #include <string_view>
-#include "basic/basic.hpp"
+#include "sim/sim.hpp"
 
 void printUsage(std::string_view program) {
     std::cerr
         << "Usage: " << program << " <flag>\n"
         << "\n"
         << "Flags:\n"
-        << "  --basic    Seed an orderbook and run the market maker demo.\n";
+        << "  --sim      Run the simulated feeder against an orderbook + market maker.\n";
 }
 
 int main(int argc, char** argv) {
@@ -17,8 +17,8 @@ int main(int argc, char** argv) {
     }
 
     std::string_view flag = argv[1];
-    if (flag == "--basic") {
-        runBasic();
+    if (flag == "--sim") {
+        runSim();
         return 0;
     }
 

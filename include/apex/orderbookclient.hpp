@@ -1,3 +1,5 @@
+#pragma once
+
 #include "orderbook.hpp"
 #include "stream/ringbuffer.hpp"
 #include "event.hpp"

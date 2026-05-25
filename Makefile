@@ -1,17 +1,22 @@
 BUILD_DIR := build
 BIN       := $(BUILD_DIR)/apex
 
-.PHONY: all build basic test clean help
+.PHONY: all build build-apex sim test clean help
 
-all: build
+all: build-apex
 
-# Configure on first run, then always invoke cmake --build (it's a no-op when nothing changed).
+# Builds just the apex binary. Doesn't gate on tests compiling.
+build-apex:
+	@test -d $(BUILD_DIR) || cmake -S . -B $(BUILD_DIR)
+	@cmake --build $(BUILD_DIR) --target apex
+
+# Builds everything (apex + all test targets).
 build:
 	@test -d $(BUILD_DIR) || cmake -S . -B $(BUILD_DIR)
 	@cmake --build $(BUILD_DIR)
 
-basic: build
-	@$(BIN) --basic
+sim: build-apex
+	@$(BIN) --sim
 
 test: build
 	@cd $(BUILD_DIR) && ctest --output-on-failure
@@ -21,7 +26,7 @@ clean:
 
 help:
 	@echo "Targets:"
-	@echo "  make           Configure (if needed) and compile."
-	@echo "  make basic     Build and run the --basic demo."
-	@echo "  make test      Build and run all tests."
+	@echo "  make           Build the apex binary."
+	@echo "  make sim       Build apex and run the --sim demo."
+	@echo "  make test      Build everything and run all tests."
 	@echo "  make clean     Remove the build directory."

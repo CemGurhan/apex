@@ -1,3 +1,5 @@
+#include "sim.hpp"
+
 #include "apex/simfeeder.hpp"
 #include "apex/marketmaker.hpp"
 
