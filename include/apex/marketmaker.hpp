@@ -14,7 +14,7 @@ class MarketMaker {
         OrderBookClient& oBookClient;
         // base_spread is the minimum spread width. Can be widened or tightened 
         // depending on how the strategy is performing.
-        uint64_t base_spread;
+        double base_spread;
         // skew_factor dictates how aggressively to shift quotes.
         double skew_factor;
         // order_quantity is the size of each quote order placed by the MarketMaker.
@@ -127,7 +127,7 @@ class MarketMaker {
         public:
             MarketMaker(
                 OrderBookClient& client,
-                uint64_t base_spread,
+                double base_spread,
                 double skew_factor,
                 uint64_t order_quantity,
                 int64_t max_inventory
