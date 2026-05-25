@@ -13,6 +13,11 @@ void runSim(std::chrono::seconds duration) {
 
     auto client = OrderBookClient(order_book, buffer);
 
+    auto feeder = SimulatedFeeder(client);
+    feeder.Run();
+
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // let some orders flow in before starting market maker
+
     auto base_spread = 0.1;
     auto skew_factor = 0.01;
     auto order_quantity = 10;
@@ -24,8 +29,6 @@ void runSim(std::chrono::seconds duration) {
 
     market_maker.Start();
 
-    auto feeder = SimulatedFeeder(client);
-    feeder.Run();
     std::this_thread::sleep_for(duration);
     std::cout << "MM Strategy Inventory: " << market_maker.GetInventory() << "\n";
     
