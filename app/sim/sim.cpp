@@ -28,4 +28,9 @@ void runSim(std::chrono::seconds duration) {
     feeder.Run();
     std::this_thread::sleep_for(duration);
     std::cout << "MM Strategy Inventory: " << market_maker.GetInventory() << "\n";
+    
+    // prevent stale events hitting trade event action on destroyed
+    // market maker.
+    client.Stop();
+    feeder.Stop();
 }
