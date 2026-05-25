@@ -81,4 +81,12 @@ class OrderBookClient {
         void Stop() {
             reader_thread.request_stop();
         }
+
+        double GetBestBid() {
+            return book.GetBestBid();
+        }
+
+        double GetBestAsk() {
+            return book.GetBestAsk();
+        }
 };

@@ -3,6 +3,7 @@
 #include "exchange.hpp"
 #include <functional>
 #include <iostream>
+#include "orderbookclient.hpp"
 
 
 class MarketMaker {
@@ -10,7 +11,7 @@ class MarketMaker {
         std::optional<uint64_t> active_bid_client_id;
         std::optional<uint64_t> active_ask_client_id;
 
-        Exchange& exchange;
+        OrderBookClient& oBookClient;
         // base_spread is the minimum spread width. Can be widened or tightened 
         // depending on how the strategy is performing.
         uint64_t base_spread;
@@ -32,8 +33,8 @@ class MarketMaker {
         // getSpreadPrices returns the bid/ask price doubles to place around fair.
         // Returns {0, 0} when the book is empty. 
         std::pair<double, double> getSpreadPrices() {
-            auto best_bid_price = exchange.GetBestBid();
-            auto best_ask_price = exchange.GetBestAsk();
+            auto best_bid_price = oBookClient.GetBestBid();
+            auto best_ask_price = oBookClient.GetBestAsk();
 
             if (best_bid_price == 0.0 && best_ask_price == 0.0) {
                 return {0, 0}; // no bids or asks in the book
@@ -63,9 +64,31 @@ class MarketMaker {
             return {bid_price, ask_price};
         }
 
+        void cancelOrder(uint64_t client_id) {
+            oBookClient.Write(OrderBookEvent{
+                .type = OrderBookEventType::CancelOrder,
+                .order = Order{
+                    .client_id = client_id
+                }
+            });
+        }
+
+        void postLimitOrder(uint64_t client_id, double price, Side side) {
+            oBookClient.Write(OrderBookEvent{
+                .type = OrderBookEventType::LimitOrder,
+                .order = Order{
+                    .client_id = client_id,
+                    .quantity = order_quantity,
+                    .price = price,
+                    .side = side,
+                    .type = OrderType::Limit
+                }
+            });
+        }
+
         void placeQuotes() {
-            if (active_bid_client_id) exchange.CancelOrder(*active_bid_client_id);
-            if (active_ask_client_id) exchange.CancelOrder(*active_ask_client_id);
+            if (active_bid_client_id) cancelOrder(*active_bid_client_id);
+            if (active_ask_client_id) cancelOrder(*active_ask_client_id);
             active_bid_client_id = std::nullopt;
             active_ask_client_id = std::nullopt;
 
@@ -92,75 +115,29 @@ class MarketMaker {
 
             if (!too_long) {
                 active_bid_client_id = bid_client_id;
-                exchange.AddLimitOrder(Order{
-                    .client_id = bid_client_id,
-                    .quantity = order_quantity,
-                    .price = bid_price,
-                    .side = Side::Buy,
-                    .type = OrderType::Limit
-                });
+                postLimitOrder(bid_client_id, bid_price, Side::Buy);
             }
 
             if (!too_short) {
                 active_ask_client_id = ask_client_id;
-                exchange.AddLimitOrder(Order{
-                    .client_id = ask_client_id,
-                    .quantity = order_quantity,
-                    .price = ask_price,
-                    .side = Side::Sell,
-                    .type = OrderType::Limit
-                });
-            }
-        }
-
-        void tradeEventAction(const Trade& trade) {
-            auto is_bid_taker = active_bid_client_id.has_value() && trade.taker_client_id == active_bid_client_id.value();
-            auto is_ask_taker = active_ask_client_id.has_value() && trade.taker_client_id == active_ask_client_id.value();
-
-            auto is_bid_maker = active_bid_client_id.has_value() && trade.maker_client_id == active_bid_client_id.value();
-            auto is_ask_maker = active_ask_client_id.has_value() && trade.maker_client_id == active_ask_client_id.value();
-
-            uint64_t our_client_id = 0;
-            if (is_ask_taker || is_bid_taker) {
-               our_client_id = trade.taker_client_id;
-            } else if (is_ask_maker || is_bid_maker) {
-                our_client_id = trade.maker_client_id;
-            } else {
-                return; // trade doesn't involve one of our quotes, ignore
-            }
-
-            auto fill_quantity = trade.filled_quantity;
-            if (our_client_id == active_bid_client_id) { // we bought
-                inventory += static_cast<int64_t>(fill_quantity);
-            } else if (our_client_id == active_ask_client_id) { // we sold
-                inventory -= static_cast<int64_t>(fill_quantity);
-            }
-
-            try {
-                placeQuotes();
-            } catch (const std::runtime_error& e) {
-                std::cout << "MarketMaker caught an exception: " << e.what() << "\n";
+                postLimitOrder(ask_client_id, ask_price, Side::Sell);
             }
         }
 
         public:
             MarketMaker(
-                Exchange& exchange,
+                OrderBookClient& client,
                 uint64_t base_spread,
                 double skew_factor,
                 uint64_t order_quantity,
                 int64_t max_inventory
             ) : 
-            exchange{exchange}, 
+            oBookClient{client}, 
             base_spread{base_spread}, 
             skew_factor{skew_factor}, 
             order_quantity{order_quantity}, 
             max_inventory{max_inventory} 
-            {
-                exchange.SetTradeEventAction([this](const Trade& trade) {
-                    this->tradeEventAction(trade);
-                });
-            }
+            {}
         
             void Start() {
                 try {
@@ -171,4 +148,34 @@ class MarketMaker {
             }
 
             int64_t GetInventory() const { return inventory; }
+
+            void TradeEventAction(const Trade& trade) {
+                auto is_bid_taker = active_bid_client_id.has_value() && trade.taker_client_id == active_bid_client_id.value();
+                auto is_ask_taker = active_ask_client_id.has_value() && trade.taker_client_id == active_ask_client_id.value();
+
+                auto is_bid_maker = active_bid_client_id.has_value() && trade.maker_client_id == active_bid_client_id.value();
+                auto is_ask_maker = active_ask_client_id.has_value() && trade.maker_client_id == active_ask_client_id.value();
+
+                uint64_t our_client_id = 0;
+                if (is_ask_taker || is_bid_taker) {
+                our_client_id = trade.taker_client_id;
+                } else if (is_ask_maker || is_bid_maker) {
+                    our_client_id = trade.maker_client_id;
+                } else {
+                    return; // trade doesn't involve one of our quotes, ignore
+                }
+
+                auto fill_quantity = trade.filled_quantity;
+                if (our_client_id == active_bid_client_id) { // we bought
+                    inventory += static_cast<int64_t>(fill_quantity);
+                } else if (our_client_id == active_ask_client_id) { // we sold
+                    inventory -= static_cast<int64_t>(fill_quantity);
+                }
+
+                try {
+                    placeQuotes();
+                } catch (const std::runtime_error& e) {
+                    std::cout << "MarketMaker caught an exception: " << e.what() << "\n";
+                }
+            }
 };

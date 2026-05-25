@@ -1,6 +1,6 @@
 #include <iostream>
 #include <string_view>
-#include "basic.hpp"
+#include "basic/basic.hpp"
 
 void printUsage(std::string_view program) {
     std::cerr

@@ -37,6 +37,8 @@ struct PriceLevel {
 
 class OrderBook : public Exchange {
     private:
+        std::atomic<uint64_t> cached_best_bid{0};
+        std::atomic<uint64_t> cached_best_ask{0};
         std::map<uint64_t, PriceLevel, std::greater<uint64_t>> bids; // have bids sort highest to lowest
         std::map<uint64_t, PriceLevel> asks;
         std::deque<Trade> trades; // queue of trades processed in this book. Processed by background routine for post-trade.
@@ -291,6 +293,17 @@ class OrderBook : public Exchange {
 
             return order;
         }
+
+        void refreshCache() {
+            cached_best_bid.store(
+                bids.empty() ? 0 : bids.begin()->first,
+                std::memory_order_release
+            );
+            cached_best_ask.store(
+                asks.empty() ? 0 : asks.begin()->first,
+                std::memory_order_release
+            );
+        }
     
     public:
         Order AddLimitOrder(Order order) override {
@@ -306,6 +319,7 @@ class OrderBook : public Exchange {
                 order = handleLimitOrder(order, bids);
             }
 
+            refreshCache();
             fireTradeCallbacks(pre_trade_count);
             return order;
         }
@@ -323,26 +337,9 @@ class OrderBook : public Exchange {
                 order = handleMarketOrder(order, bids);
             }
 
+            refreshCache();
             fireTradeCallbacks(pre_trade_count);
             return order;
-        }
-
-        double GetBestBid() const override {
-            if (bids.empty()) {
-                return 0.0;
-            }
-
-            // return highest val as best, denormalized to price units.
-            return static_cast<double>(bids.begin()->first) * tick_size;
-        }
-
-        double GetBestAsk() const override {
-            if (asks.empty()) {
-                return 0.0;
-            }
-
-            // return lowest val as best, denormalized to price units.
-            return static_cast<double>(asks.begin()->first) * tick_size;
         }
 
         // CancelOrder cancels the order with the given client_id and
@@ -372,7 +369,18 @@ class OrderBook : public Exchange {
                 }
             }
 
+            refreshCache();
             return order_snap;
+        }
+
+        double GetBestBid() override {
+            // return highest val as best, denormalized to price units.
+            return cached_best_bid.load(std::memory_order_acquire) * tick_size;
+        }
+
+        double GetBestAsk() override {
+            // return lowest val as best, denormalized to price units.
+            return cached_best_ask.load(std::memory_order_acquire) * tick_size;
         }
 
         // SetTradeEventAction sets the action to be taken on each trade event emitted by this order book.
