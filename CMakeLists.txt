@@ -4,8 +4,24 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# yaml-cpp for parsing app/sim/simcfg.yaml.
+# Override yaml-cpp's outdated cmake_minimum_required (its 0.8.0 release predates
+# cmake 4's removal of <3.5 compat) by raising the policy floor for it.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
+include(FetchContent)
+FetchContent_Declare(
+  yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+  GIT_TAG 0.8.0
+)
+set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(YAML_CPP_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(yaml-cpp)
+
 add_executable(apex app/main.cpp app/sim/sim.cpp)
 target_include_directories(apex PRIVATE include app)
+target_link_libraries(apex PRIVATE yaml-cpp::yaml-cpp)
 
 if(APPLE)
     add_custom_command(TARGET apex POST_BUILD
