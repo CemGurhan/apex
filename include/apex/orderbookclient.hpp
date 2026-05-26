@@ -91,4 +91,8 @@ class OrderBookClient {
         double GetBestAsk() {
             return book.GetBestAsk();
         }
+
+        double GetTickSize() {
+            return book.GetTickSize();
+        }
 };

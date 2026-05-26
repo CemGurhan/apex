@@ -4,6 +4,7 @@
 #include <functional>
 #include <iostream>
 #include "orderbookclient.hpp"
+#include "pnl/tracker.hpp"
 
 
 class MarketMaker {
@@ -12,6 +13,7 @@ class MarketMaker {
         std::optional<uint64_t> active_ask_client_id;
 
         OrderBookClient& oBookClient;
+        PnLTracker& pnlTracker;
         // base_spread is the minimum spread width. Can be widened or tightened 
         // depending on how the strategy is performing.
         double base_spread;
@@ -124,15 +126,21 @@ class MarketMaker {
             }
         }
 
+        double marketMidPrice() {
+            return (oBookClient.GetBestBid() + oBookClient.GetBestAsk()) / 2.0;
+        }
+
         public:
             MarketMaker(
                 OrderBookClient& client,
+                PnLTracker& pnlTracker,
                 double base_spread,
                 double skew_factor,
                 uint64_t order_quantity,
                 int64_t max_inventory
             ) : 
             oBookClient{client}, 
+            pnlTracker{pnlTracker},
             base_spread{base_spread}, 
             skew_factor{skew_factor}, 
             order_quantity{order_quantity}, 
@@ -158,19 +166,30 @@ class MarketMaker {
 
                 uint64_t our_client_id = 0;
                 if (is_ask_taker || is_bid_taker) {
-                our_client_id = trade.taker_client_id;
+                    our_client_id = trade.taker_client_id;
                 } else if (is_ask_maker || is_bid_maker) {
                     our_client_id = trade.maker_client_id;
                 } else {
                     return; // trade doesn't involve one of our quotes, ignore
                 }
 
+                Side side = Side::Buy;
                 auto fill_quantity = trade.filled_quantity;
                 if (our_client_id == active_bid_client_id) { // we bought
                     inventory += static_cast<int64_t>(fill_quantity);
                 } else if (our_client_id == active_ask_client_id) { // we sold
                     inventory -= static_cast<int64_t>(fill_quantity);
+                    side = Side::Sell;
                 }
+
+                pnlTracker.OnFill(
+                    side,
+                    fill_quantity,
+                    trade.price,
+                    marketMidPrice(), 
+                    inventory,
+                    oBookClient.GetTickSize()
+                );
 
                 try {
                     placeQuotes();
