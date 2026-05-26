@@ -21,7 +21,7 @@ struct DistConfig {
 
     // arrival_rate_lambda is used to determine how frequently orders arrive in our market.
     // A higher value indicates more frequent order arrivals.
-    double arrive_rate_lambda = 10;
+    double arrive_rate_lambda = 0.1;
 
     // order_qty_size_lambda is used to determine how large our order quantities placed are.
     // A larger value means smaller order quantities.
