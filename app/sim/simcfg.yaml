@@ -3,4 +3,5 @@ base_spread:      0.8
 skew_factor:      0.1
 order_quantity:   10
 max_inventory:    100
-duration_seconds: 60
+duration_seconds: 30
+pnl_csv_path:     app/sim/pnl/pnl_output.csv

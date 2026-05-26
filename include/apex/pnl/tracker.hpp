@@ -1,10 +1,18 @@
 #include <vector>
+#include <fstream>
+#include <iomanip>
+#include <limits>
+#include <stdexcept>
+#include <string>
 #include "snapshot.hpp"
 
 class PnLTracker {
     private:
         std::vector<PnLSnapshot> snapshots = {};
+        std::string csv_write_path;
     public:
+        PnLTracker(std::string csv_write_path) : csv_write_path{csv_write_path} {}
+
         uint64_t now() {
             return static_cast<uint64_t>(
                 std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -37,5 +45,24 @@ class PnLTracker {
                 .inventory = inventory,
                 .timestamp = now(),
                 });
+        }
+
+        // WriteSnapshotsToCSV writes every snapshot recorded so far to the given
+        // path.
+        void WriteSnapshotsToCSV() const {
+            std::ofstream file(csv_write_path);
+            if (!file) {
+                throw std::runtime_error("failed to open file for writing: " + csv_write_path);
+            }
+
+            file << std::setprecision(std::numeric_limits<double>::max_digits10);
+            file << "timestamp,realized_pnl,unrealized_pnl,total_pnl,inventory\n";
+            for (const auto& s : snapshots) {
+                file << s.timestamp << ','
+                     << s.realized_pnl << ','
+                     << s.unrealized_pnl << ','
+                     << s.total_pnl << ','
+                     << s.inventory << '\n';
+            }
         }
 };

@@ -18,6 +18,7 @@ SimConfig loadSimConfig(const std::string& path) {
         .order_quantity = node["order_quantity"].as<uint64_t>(),
         .max_inventory  = node["max_inventory"].as<int64_t>(),
         .duration       = std::chrono::seconds(node["duration_seconds"].as<int64_t>()),
+        .pnl_csv_path   = node["pnl_csv_path"].as<std::string>(),
     };
 }
 
