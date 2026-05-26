@@ -10,6 +10,7 @@
 #include <chrono>
 #include <atomic>
 #include "exchange.hpp"
+#include <vector>
 
 // OrderNode represents an order resting at a
 // price level in the orderbook.
@@ -45,7 +46,7 @@ class OrderBook : public Exchange {
         std::atomic<uint64_t> trade_sequence_number{0}; // sequence number for trades, incremented on each new trade.
         std::atomic<uint64_t> next_order_id{1};               // assigns each rested order a book-internal id
         std::unordered_map<uint64_t, OrderNode*> client_id_to_node; // keyed by client_id for cancel lookups
-        std::function<void(const Trade&)> trade_event_action;
+        std::vector<std::function<void(const Trade&)>> trade_event_actions;
         double tick_size = 0;
 
         // toTicks normalizes a price (in price units) into the book's
@@ -55,10 +56,12 @@ class OrderBook : public Exchange {
         }
 
         void fireTradeCallbacks(size_t from_index) {
-            if (!trade_event_action) return;
+            if (trade_event_actions.empty()) return;
             auto end = trades.size();
             for (size_t i = from_index; i < end; i++) {
-                trade_event_action(trades[i]);
+                for (auto j = 0; j < trade_event_actions.size(); ++j) {
+                    trade_event_actions[j](trades[i]);
+                }
             }
         }
 
@@ -383,9 +386,9 @@ class OrderBook : public Exchange {
             return cached_best_ask.load(std::memory_order_acquire) * tick_size;
         }
 
-        // SetTradeEventAction sets the action to be taken on each trade event emitted by this order book.
-        void SetTradeEventAction(std::function<void(const Trade&)> action) override {
-            trade_event_action = action;
+        // RegisterTradeEventAction registers an action to be taken on each trade event emitted by this order book.
+        void RegisterTradeEventAction(std::function<void(const Trade&)> action) override {
+            trade_event_actions.emplace_back(action);
         }
 
         double GetTickSize() const override {

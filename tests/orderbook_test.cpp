@@ -454,7 +454,7 @@ TEST(CancelOrder, CancelFilledOrderReturnsNullopt) {
 TEST(TradeEventAction, CallbackInvokedOnTrade) {
     OrderBook book(1.0);
     std::vector<Trade> captured;
-    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+    book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
     book.AddLimitOrder(MakeLimitBuy(2, 100, 10));
@@ -465,7 +465,7 @@ TEST(TradeEventAction, CallbackInvokedOnTrade) {
 TEST(TradeEventAction, CallbackReceivesCorrectTradeFields) {
     OrderBook book(1.0);
     std::vector<Trade> captured;
-    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+    book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
     book.AddLimitOrder(MakeLimitBuy(2, 100, 10));
@@ -482,7 +482,7 @@ TEST(TradeEventAction, CallbackReceivesCorrectTradeFields) {
 TEST(TradeEventAction, NotInvokedWhenNoMatch) {
     OrderBook book(1.0);
     std::vector<Trade> captured;
-    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+    book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
     book.AddLimitOrder(MakeLimitSell(1, 150, 10));
     book.AddLimitOrder(MakeLimitBuy(2, 100, 10)); // no cross
@@ -493,7 +493,7 @@ TEST(TradeEventAction, NotInvokedWhenNoMatch) {
 TEST(TradeEventAction, InvokedOncePerTradeAcrossMultipleLevels) {
     OrderBook book(1.0);
     std::vector<Trade> captured;
-    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+    book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
     book.AddLimitOrder(MakeLimitSell(2, 101, 5));
@@ -519,7 +519,7 @@ TEST(TradeEventAction, InvokedOncePerTradeAcrossMultipleLevels) {
 TEST(TradeEventAction, SequenceNumbersIncrementAcrossCallbacks) {
     OrderBook book(1.0);
     std::vector<Trade> captured;
-    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+    book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
     book.AddLimitOrder(MakeLimitSell(2, 101, 5));
@@ -533,7 +533,7 @@ TEST(TradeEventAction, SequenceNumbersIncrementAcrossCallbacks) {
 TEST(TradeEventAction, MarketOrderTriggersCallback) {
     OrderBook book(1.0);
     std::vector<Trade> captured;
-    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+    book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
     book.AddMarketOrder(MakeMarketBuy(2, 10));
@@ -558,11 +558,11 @@ TEST(TradeEventAction, ReplacingCallbackUsesNewAction) {
     std::vector<Trade> first;
     std::vector<Trade> second;
 
-    book.SetTradeEventAction([&](const Trade& t) { first.push_back(t); });
+    book.RegisterTradeEventAction([&](const Trade& t) { first.push_back(t); });
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
     book.AddLimitOrder(MakeLimitBuy(2, 100, 5));
 
-    book.SetTradeEventAction([&](const Trade& t) { second.push_back(t); });
+    book.RegisterTradeEventAction([&](const Trade& t) { second.push_back(t); });
     book.AddLimitOrder(MakeLimitSell(3, 100, 5));
     book.AddLimitOrder(MakeLimitBuy(4, 100, 5));
 
@@ -573,7 +573,7 @@ TEST(TradeEventAction, ReplacingCallbackUsesNewAction) {
 TEST(TradeEventAction, FIFOWithinLevelFiresCallbackPerFill) {
     OrderBook book(1.0);
     std::vector<Trade> captured;
-    book.SetTradeEventAction([&](const Trade& t) { captured.push_back(t); });
+    book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
     book.AddLimitOrder(MakeLimitSell(2, 100, 5));

@@ -11,7 +11,7 @@ public:
     virtual std::optional<Order> CancelOrder(uint64_t client_id) = 0;
     virtual double GetBestBid() = 0;
     virtual double GetBestAsk() = 0;
-    virtual void SetTradeEventAction(std::function<void(const Trade&)> action) = 0;
+    virtual void RegisterTradeEventAction(std::function<void(const Trade&)> action) = 0;
     virtual double GetTickSize() const = 0;
     virtual ~Exchange() = default;
 };

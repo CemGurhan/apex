@@ -17,7 +17,7 @@ void runSim(const SimConfig& cfg) {
     std::this_thread::sleep_for(std::chrono::seconds(1)); // let some orders flow in before starting market maker
 
     auto market_maker = MarketMaker(client, cfg.base_spread, cfg.skew_factor, cfg.order_quantity, cfg.max_inventory);
-    order_book.SetTradeEventAction([&market_maker](const Trade& trade) {
+    order_book.RegisterTradeEventAction([&market_maker](const Trade& trade) {
         market_maker.TradeEventAction(trade);
     });
 

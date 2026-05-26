@@ -91,7 +91,7 @@ TEST(SimulatedFeeder, MarketOnlyAgainstSeededBookProducesTrades) {
     RingBuffer<OrderBookEvent, 1024> buffer;
 
     std::atomic<int> trade_count{0};
-    book.SetTradeEventAction([&](const Trade&) {
+    book.RegisterTradeEventAction([&](const Trade&) {
         trade_count.fetch_add(1, std::memory_order_relaxed);
     });
 
@@ -121,7 +121,7 @@ TEST(SimulatedFeeder, CancelOnlyWithEmptyTrackingIsNoOp) {
     RingBuffer<OrderBookEvent, 1024> buffer;
 
     std::atomic<int> trade_count{0};
-    book.SetTradeEventAction([&](const Trade&) {
+    book.RegisterTradeEventAction([&](const Trade&) {
         trade_count.fetch_add(1, std::memory_order_relaxed);
     });
 

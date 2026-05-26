@@ -61,7 +61,7 @@ TEST(OrderBookClient, LimitBuyEventRestsAsBid) {
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<int> trades{0};
-    book.SetTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
+    book.RegisterTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
 
     // sentinel ask used as a barrier — the tracer buy below crosses it
     book.AddLimitOrder(MakeLimitSell(99, 200, 1));
@@ -84,7 +84,7 @@ TEST(OrderBookClient, LimitSellEventRestsAsAsk) {
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<int> trades{0};
-    book.SetTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
+    book.RegisterTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
 
     book.AddLimitOrder(MakeLimitBuy(99, 1, 1)); // sentinel at price 1
 
@@ -107,7 +107,7 @@ TEST(OrderBookClient, MarketOrderEventFillsRestedLimit) {
     std::atomic<int> trades{0};
     Trade captured{};
     std::mutex mu;
-    book.SetTradeEventAction([&](const Trade& t) {
+    book.RegisterTradeEventAction([&](const Trade& t) {
         std::lock_guard lock(mu);
         captured = t;
         trades.fetch_add(1, std::memory_order_release);
@@ -133,7 +133,7 @@ TEST(OrderBookClient, CancelOrderEventRemovesRestedOrder) {
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<int> trades{0};
-    book.SetTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
+    book.RegisterTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
 
     book.AddLimitOrder(MakeLimitBuy(1, 100, 10));    // to be cancelled
     book.AddLimitOrder(MakeLimitSell(99, 200, 1));   // sentinel for tracer
@@ -156,7 +156,7 @@ TEST(OrderBookClient, ProcessesMixedEventsInFIFO) {
     std::vector<Trade> captured;
     std::mutex mu;
     std::atomic<int> trades{0};
-    book.SetTradeEventAction([&](const Trade& t) {
+    book.RegisterTradeEventAction([&](const Trade& t) {
         std::lock_guard lock(mu);
         captured.push_back(t);
         trades.fetch_add(1, std::memory_order_release);
@@ -190,7 +190,7 @@ TEST(OrderBookClient, ProcessesEventsArrivingAfterIdle) {
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<int> trades{0};
-    book.SetTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
+    book.RegisterTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
 
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
 
@@ -211,7 +211,7 @@ TEST(OrderBookClient, StopHaltsProcessingOfFutureWrites) {
     RingBuffer<OrderBookEvent, 1024> buffer;
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
     std::atomic<int> trades{0};
-    book.SetTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
+    book.RegisterTradeEventAction([&](const Trade&) { trades.fetch_add(1, std::memory_order_release); });
 
     {
         OrderBookClient client(book, buffer);
