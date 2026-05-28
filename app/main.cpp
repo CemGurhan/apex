@@ -19,6 +19,7 @@ SimConfig loadSimConfig(const std::string& path) {
         .max_inventory  = node["max_inventory"].as<int64_t>(),
         .duration       = std::chrono::seconds(node["duration_seconds"].as<int64_t>()),
         .pnl_csv_path   = node["pnl_csv_path"].as<std::string>(),
+        .iterations     = node["iterations"].as<int>(),
     };
 }
 
@@ -68,7 +69,7 @@ int main(int argc, char** argv) {
             std::cerr << "failed to load sim config from '" << cfg_path << "': " << e.what() << "\n";
             return 1;
         }
-        runSim(cfg);
+        startSimulation(cfg);
         return 0;
     }
 

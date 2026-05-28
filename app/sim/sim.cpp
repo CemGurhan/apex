@@ -15,11 +15,16 @@ namespace {
 // Inserts a wall-clock timestamp suffix before the file extension so each run
 // produces a uniquely-named output. e.g. "pnl/out.csv" -> "pnl/out_20260526T143045.csv".
 std::string timestampedPath(const std::string& path) {
-    auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    std::tm tm = *std::localtime(&now);
+    auto now = std::chrono::system_clock::now();
+    auto t = std::chrono::system_clock::to_time_t(now);
+    std::tm tm = *std::localtime(&t);
+
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  now.time_since_epoch()) % 1000;
 
     std::ostringstream stamp;
-    stamp << std::put_time(&tm, "%Y%m%dT%H%M%S");
+    stamp << std::put_time(&tm, "%Y%m%dT%H%M%S")
+          << std::setw(3) << std::setfill('0') << ms.count();
 
     std::filesystem::path p(path);
     auto leaf = p.stem().string() + "_" + stamp.str() + p.extension().string();
@@ -70,4 +75,10 @@ void runSim(const SimConfig& cfg) {
     // market maker.
     client.Stop();
     feeder.Stop();
+}
+
+void startSimulation(const SimConfig& cfg) {
+    for (int i = 1; i <= cfg.iterations; ++i) {
+        runSim(cfg);
+    }
 }
