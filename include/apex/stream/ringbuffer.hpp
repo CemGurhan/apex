@@ -132,45 +132,23 @@ class RingBuffer {
 };
 
 
-// NOTES (remove if made to production):
-// Modern CPUs have store buffers, out-of-order execution, and write combining. The processor sees 
-// two independent stores — one to buffer[w] and one to write_idx — and might commit them to memory 
-// in any order if it thinks it's faster. Your code says "write data then update index" but the CPU might 
-// execute "update index then write data."
-
-// On a single thread this is invisible — the CPU guarantees your own thread sees stores in program order. 
-// But another thread reading those same memory locations might see the index update before the data write. 
-// The consumer sees write_idx changed, reads the buffer slot, gets whatever garbage was there before 
-// the producer's data arrived.
-
-// memory_order_release tells the CPU: "flush everything I've written before this store. Don't let any earlier 
-// writes be reordered past this point." It forces the data write to be visible before the index write, as seen 
-// by other threads.
-
-// When you use sync/atomic in Go, you're in the same territory as C++ atomics. atomic.Store and atomic.Load in Go 
-// provide sequential consistency by default — the most expensive ordering, equivalent to C++'s seq_cst. Go doesn't 
-// expose release/acquire as options. You get the strongest guarantee and pay the cost whether you need it or not.
-// C++ gives you the choice. seq_cst if you want safety. release/acquire if you understand the ordering requirements 
-// and want the performance. relaxed if you only need atomicity with no ordering at all (rare).
-
-// seq_cst is sequential consistency
-
-// Why reorder:
-
 // The CPU is optimizing for single-threaded speed and doesn't know you have another thread watching.
 
-// Concrete example: the producer writes data to `buffer[5]` (a cache line in main memory) then writes `write_idx = 6` 
-// (a different cache line). If the cache line for `buffer[5]` is not in the CPU's L1 cache but `write_idx` is, the CPU faces 
-// a choice: stall the entire pipeline waiting for `buffer[5]`'s cache line to load, or put the `buffer[5]` write into a store 
-// buffer, skip ahead, and commit `write_idx` immediately since it's already in cache.
+// Concrete example: the producer writes data to our ringbuffer `buffer[5]` (a cache line in main memory) then writes 
+// `write_idx = 6`  (a different cache line). If the cache line for `buffer[5]` is not in the CPU's L1 cache but 
+// `write_idx` is, the CPU faces a choice: stall the entire pipeline waiting for `buffer[5]`'s cache line to load, 
+// or put the `buffer[5]` write into a STORE BUFFER (a small queue written to if the cache line isn't ready), 
+// skip ahead, and commit `write_idx` immediately since it's already in cache.
 
 // The CPU picks option two — it's faster for single-threaded code and the result is identical from this thread's perspective. 
-// The store buffer will flush `buffer[5]` eventually. But "eventually" might be after another core has already seen `write_idx = 6` 
-// and tried to read `buffer[5]`.
+// The store buffer will flush `buffer[5]` eventually. But "eventually" might be after another core has already seen 
+// `write_idx = 6` and tried to read `buffer[5]`. The other core will see stale buffer data. E.g.
 
-// Other reasons CPUs reorder: write combining (batching multiple writes to adjacent memory into one bus transaction), speculative 
-// execution (executing instructions before earlier ones complete), and store buffer forwarding (reads from your own recent writes 
-// come from the store buffer, not memory).
+// 1. Core 1 writes buffer[5] = data → goes into core 1's store buffer
+// 2. Core 1 writes write_idx = 6 → cache line is hot, goes straight to cache
+// 3. Core 2 sees write_idx = 6 in cache → tries to read buffer[5]
+// 4. Core 2 reads stale buffer[5] — core 1's write is still sitting in the store buffer, not yet flushed
 
-// All of these are invisible to a single thread — the CPU guarantees you see your own operations in order. The problem only appears 
-// when a second thread is observing the same memory. The CPU has no idea another core is watching. Memory ordering tells it to care.
+// memory_order_release on the write_idx store forces the flush: "drain all pending writes from my store buffer 
+// before this store becomes visible." Now buffer[5] is committed to cache before write_idx = 6 is. Core 2 sees 
+// both in the correct order.

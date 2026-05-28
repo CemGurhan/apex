@@ -1,6 +1,5 @@
 #pragma once
 
-#include <chrono>
 #include <cstdint>
 #include <string>
 
@@ -11,9 +10,11 @@ struct SimConfig {
     double skew_factor;
     uint64_t order_quantity;
     int64_t max_inventory;
-    std::chrono::seconds duration;
     std::string pnl_csv_path;
     // iterations is how many independent runs of runSim the monte carlo
     // performs back-to-back. Each iteration produces its own CSV.
     int iterations;
+    // sim_iterations is the number of loop ticks the SimulatedFeeder performs
+    // per runSim. 
+    uint64_t sim_iterations;
 };

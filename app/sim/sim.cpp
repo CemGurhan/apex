@@ -33,13 +33,20 @@ std::string timestampedPath(const std::string& path) {
 
 }
 
-void runSim(const SimConfig& cfg) {
+void runSim(const SimConfig& cfg, int iteration) {
     auto order_book = OrderBook(cfg.tick_size);
     auto buffer = RingBuffer<OrderBookEvent, 1024>();
 
     auto client = OrderBookClient(order_book, buffer);
 
-    auto feeder = SimulatedFeeder(client);
+    auto feeder = SimulatedFeeder(
+        client,
+        {1, 2048},
+        100.0,
+        DistConfig{},
+        cfg.sim_iterations,
+        static_cast<uint64_t>(iteration)
+    );
     feeder.Run();
 
     std::this_thread::sleep_for(std::chrono::seconds(1)); // let some orders flow in before starting market maker
@@ -63,7 +70,6 @@ void runSim(const SimConfig& cfg) {
 
     market_maker.Start();
 
-    std::this_thread::sleep_for(cfg.duration);
     std::cout << "Done: MM Strategy Inventory: " << market_maker.GetInventory() << "\n";
     
     std::cout << "Writing PnL snapshots to CSV at: " << output_path << "\n";
@@ -78,7 +84,15 @@ void runSim(const SimConfig& cfg) {
 }
 
 void startSimulation(const SimConfig& cfg) {
+    // NOTE: we use a mersene twister RNG in the sim feeder. Each iteration here
+    // is used as a seed in the sim feeder's RNG. Thus, every iteration
+    // starts off with similar outputs after expansion. As the sim feeder calls the 
+    // RNG the outputs between each iteration should start looking 
+    // very different. We run the sim feeder for a large number of iterations
+    // so the initial similarity shouldn't be a concern.
+    // seed_seq could be used to apply noise to each seed if the sim feeder
+    // is not random enough.
     for (int i = 1; i <= cfg.iterations; ++i) {
-        runSim(cfg);
+        runSim(cfg, i);
     }
 }

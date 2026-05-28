@@ -1,4 +1,5 @@
 #include "feeder.hpp"
+#include <limits>
 #include <random>
 #include <thread>
 #include "side.hpp"
@@ -74,6 +75,10 @@ class SimulatedFeeder : EventFeeder {
         std::discrete_distribution<int> order_place_dist;
 
         std::mt19937 rng; // mersenne twister random number generator
+
+        // iterations is the number of loop ticks run() executes before exiting
+        // on its own. Each tick samples one order placement decision.
+        uint64_t iterations;
 
         // active_order_ids tracks client IDs of resting limit orders we've placed,
         // so we can pick one at random when generating a cancel.
@@ -172,7 +177,7 @@ class SimulatedFeeder : EventFeeder {
         }
 
         void run(std::stop_token stop) {
-            while(!stop.stop_requested()) {
+            for (uint64_t i = 0; i < iterations && !stop.stop_requested(); ++i) {
                 // geometric brownian, not arithmetic, to keep +ve,
                 // multiply fair price to get next val.
                 fair_price *= std::exp(config.sigma * fair_price_dist(rng));
@@ -205,7 +210,9 @@ class SimulatedFeeder : EventFeeder {
             OrderBookClient& client,
             std::pair<int, int> order_id_range = {1, 2048},
             double starting_fair_price = 100.0,
-            DistConfig config = {}
+            DistConfig config = {},
+            uint64_t iterations = std::numeric_limits<uint64_t>::max(),
+            uint64_t seed = std::random_device{}()
         ) :
         client{client},
         config{config},
@@ -216,7 +223,8 @@ class SimulatedFeeder : EventFeeder {
         side_dist(config.side_prob),
         aggressive_dist(config.aggressive_prob),
         order_place_dist({config.market_order_prob, config.limit_order_prob, config.cancel_order_prob}),
-        rng(std::random_device{}()),
+        rng(seed),
+        iterations{iterations},
         order_id_range{static_cast<uint64_t>(order_id_range.first), static_cast<uint64_t>(order_id_range.second)},
         client_id{static_cast<uint64_t>(order_id_range.first - 1)},
         fair_price{starting_fair_price}
