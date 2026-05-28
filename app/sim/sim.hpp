@@ -8,5 +8,5 @@
 // is used to seed the feeder's RNG.
 void runSim(const SimConfig& cfg, int iteration);
 
-// startSimulation runs runSim cfg.iterations times in a row.
+// startSimulation runs runSim cfg.sim_run_iterations times in a row.
 void startSimulation(const SimConfig& cfg);

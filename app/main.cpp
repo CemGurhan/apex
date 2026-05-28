@@ -18,8 +18,8 @@ SimConfig loadSimConfig(const std::string& path) {
         .order_quantity = node["order_quantity"].as<uint64_t>(),
         .max_inventory  = node["max_inventory"].as<int64_t>(),
         .pnl_csv_path   = node["pnl_csv_path"].as<std::string>(),
-        .iterations     = node["iterations"].as<int>(),
-        .sim_iterations = node["sim_iterations"].as<uint64_t>(),
+        .sim_run_iterations    = node["sim_run_iterations"].as<int>(),
+        .sim_feeder_iterations = node["sim_feeder_iterations"].as<uint64_t>(),
     };
 }
 

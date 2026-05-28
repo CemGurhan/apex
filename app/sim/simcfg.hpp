@@ -11,10 +11,10 @@ struct SimConfig {
     uint64_t order_quantity;
     int64_t max_inventory;
     std::string pnl_csv_path;
-    // iterations is how many independent runs of runSim the monte carlo
+    // sim_run_iterations is how many independent runs of runSim the monte carlo
     // performs back-to-back. Each iteration produces its own CSV.
-    int iterations;
-    // sim_iterations is the number of loop ticks the SimulatedFeeder performs
-    // per runSim. 
-    uint64_t sim_iterations;
+    int sim_run_iterations;
+    // sim_feeder_iterations is the number of loop ticks the SimulatedFeeder
+    // performs per runSim.
+    uint64_t sim_feeder_iterations;
 };

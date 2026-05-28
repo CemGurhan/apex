@@ -44,7 +44,7 @@ void runSim(const SimConfig& cfg, int iteration) {
         {1, 2048},
         100.0,
         DistConfig{},
-        cfg.sim_iterations,
+        cfg.sim_feeder_iterations,
         static_cast<uint64_t>(iteration)
     );
     feeder.Run();
@@ -92,7 +92,7 @@ void startSimulation(const SimConfig& cfg) {
     // so the initial similarity shouldn't be a concern.
     // seed_seq could be used to apply noise to each seed if the sim feeder
     // is not random enough.
-    for (int i = 1; i <= cfg.iterations; ++i) {
+    for (int i = 1; i <= cfg.sim_run_iterations; ++i) {
         runSim(cfg, i);
     }
 }
