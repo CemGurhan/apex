@@ -76,7 +76,7 @@ FinalState runScenario(
     if (seed_book) seed_book(book);
 
     RingBuffer<OrderBookEvent, 1024> buffer;
-    PnLTracker tracker(kUnusedPnlPath);
+    PnLTracker tracker(kUnusedPnlPath, kUnusedPnlPath, 0, 0);
     std::atomic<uint64_t> counter{1};
     std::atomic<int> trades{0};
     int64_t final_inv = 0;
