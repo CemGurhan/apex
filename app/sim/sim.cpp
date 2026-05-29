@@ -105,9 +105,6 @@ void startSimulation(const SimConfig& cfg) {
     std::filesystem::create_directories(cfg.pnl_csv_dir);
     auto run_dir = newRunDir(cfg.pnl_csv_dir);
 
-    std::ofstream((std::filesystem::path(run_dir) / "summary.csv").string())
-        << "run,seed,final_total_pnl,final_inventory,sharpe_ratio\n";
-
     // NOTE: we use a mersene twister RNG in the sim feeder. Each iteration here
     // is used as a seed in the sim feeder's RNG. Thus, every iteration
     // starts off with similar outputs after expansion. As the sim feeder calls the

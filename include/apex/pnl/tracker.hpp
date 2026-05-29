@@ -77,6 +77,9 @@ class PnLTracker {
             };
 
             std::ofstream out(summary_csv_path, std::ios::app);
+            if (out.tellp() == 0) {
+                out << "run,seed,final_total_pnl,final_inventory,sharpe_ratio,max_drawdown\n";
+            }
             out << std::setprecision(std::numeric_limits<double>::max_digits10)
                 << s.run << ',' << s.seed << ',' << s.final_total_pnl << ','
                 << s.final_inventory << ',' << s.sharpe_ratio << ',' << s.max_drawdown << '\n';
