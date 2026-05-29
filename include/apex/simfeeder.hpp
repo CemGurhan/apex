@@ -1,4 +1,5 @@
 #include "feeder.hpp"
+#include <atomic>
 #include <random>
 #include <thread>
 #include "side.hpp"
@@ -79,9 +80,7 @@ class SimulatedFeeder : EventFeeder {
         // so we can pick one at random when generating a cancel.
         std::vector<uint64_t> active_order_ids;
 
-        std::pair<uint64_t, uint64_t> order_id_range = {1, 2048};
-
-        std::atomic<uint64_t> client_id;
+        std::atomic<uint64_t>& client_id_counter;
 
         double fair_price;
 
@@ -124,7 +123,7 @@ class SimulatedFeeder : EventFeeder {
             double price,
             Side side
         ) {
-            auto assigned_id = client_id.fetch_add(1);
+            auto assigned_id = client_id_counter.fetch_add(1, std::memory_order_relaxed);
             if (type == OrderBookEventType::LimitOrder) {
                 active_order_ids.push_back(assigned_id);
             }
@@ -202,7 +201,7 @@ class SimulatedFeeder : EventFeeder {
 
         SimulatedFeeder(
             OrderBookClient& client,
-            std::pair<int, int> order_id_range = {1, 2048},
+            std::atomic<uint64_t>& client_id_counter,
             double starting_fair_price = 100.0,
             DistConfig config = {},
             uint64_t seed = std::random_device{}()
@@ -217,8 +216,7 @@ class SimulatedFeeder : EventFeeder {
         aggressive_dist(config.aggressive_prob),
         order_place_dist({config.market_order_prob, config.limit_order_prob, config.cancel_order_prob}),
         rng(seed),
-        order_id_range{static_cast<uint64_t>(order_id_range.first), static_cast<uint64_t>(order_id_range.second)},
-        client_id{static_cast<uint64_t>(order_id_range.first - 1)},
+        client_id_counter{client_id_counter},
         fair_price{starting_fair_price}
         {};
 };

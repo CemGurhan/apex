@@ -1,6 +1,7 @@
 #pragma once
 
 #include "exchange.hpp"
+#include <atomic>
 #include <functional>
 #include <iostream>
 #include "orderbookclient.hpp"
@@ -28,9 +29,7 @@ class MarketMaker {
         // negative means short.
         int64_t inventory = 0;
 
-        // client_id_counter generates unique client-side IDs for each quote
-        // the market maker places. The orderbook tracks its own internal IDs.
-        uint64_t client_id_counter = 1;
+        std::atomic<uint64_t>& client_id_counter;
 
         // getSpreadPrices returns the bid/ask price doubles to place around fair.
         // Returns {0, 0} when the book is empty. 
@@ -107,12 +106,12 @@ class MarketMaker {
             uint64_t bid_client_id = 0;
             uint64_t ask_client_id = 0;
             if (!too_long && !too_short) {
-                bid_client_id = client_id_counter++;
-                ask_client_id = client_id_counter++;
+                bid_client_id = client_id_counter.fetch_add(1, std::memory_order_relaxed);
+                ask_client_id = client_id_counter.fetch_add(1, std::memory_order_relaxed);
             } else if (!too_long) {
-                bid_client_id = client_id_counter++;
+                bid_client_id = client_id_counter.fetch_add(1, std::memory_order_relaxed);
             } else if (!too_short) {
-                ask_client_id = client_id_counter++;
+                ask_client_id = client_id_counter.fetch_add(1, std::memory_order_relaxed);
             }
 
             if (!too_long) {
@@ -134,17 +133,19 @@ class MarketMaker {
             MarketMaker(
                 OrderBookClient& client,
                 PnLTracker& pnlTracker,
+                std::atomic<uint64_t>& client_id_counter,
                 double base_spread,
                 double skew_factor,
                 uint64_t order_quantity,
                 int64_t max_inventory
-            ) : 
-            oBookClient{client}, 
+            ) :
+            oBookClient{client},
             pnlTracker{pnlTracker},
-            base_spread{base_spread}, 
-            skew_factor{skew_factor}, 
-            order_quantity{order_quantity}, 
-            max_inventory{max_inventory} 
+            base_spread{base_spread},
+            skew_factor{skew_factor},
+            order_quantity{order_quantity},
+            max_inventory{max_inventory},
+            client_id_counter{client_id_counter}
             {}
         
             void Start() {

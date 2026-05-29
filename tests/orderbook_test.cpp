@@ -553,18 +553,19 @@ TEST(TradeEventAction, NoCallbackRegisteredDoesNotCrash) {
     EXPECT_NO_THROW(book.AddLimitOrder(MakeLimitBuy(2, 100, 10)));
 }
 
-TEST(TradeEventAction, ReplacingCallbackUsesNewAction) {
+TEST(TradeEventAction, AllRegisteredCallbacksFirePerTrade) {
+    // RegisterTradeEventAction appends — every registered callback receives
+    // every subsequent trade. (The previous Set-style API replaced; this one
+    // accumulates.)
     OrderBook book(1.0);
     std::vector<Trade> first;
     std::vector<Trade> second;
 
     book.RegisterTradeEventAction([&](const Trade& t) { first.push_back(t); });
-    book.AddLimitOrder(MakeLimitSell(1, 100, 5));
-    book.AddLimitOrder(MakeLimitBuy(2, 100, 5));
-
     book.RegisterTradeEventAction([&](const Trade& t) { second.push_back(t); });
-    book.AddLimitOrder(MakeLimitSell(3, 100, 5));
-    book.AddLimitOrder(MakeLimitBuy(4, 100, 5));
+
+    book.AddLimitOrder(MakeLimitSell(1, 100, 5));
+    book.AddLimitOrder(MakeLimitBuy(2, 100, 5)); // matches → one trade
 
     EXPECT_EQ(first.size(), 1);
     EXPECT_EQ(second.size(), 1);

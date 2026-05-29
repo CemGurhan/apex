@@ -1,5 +1,6 @@
 #include "sim.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <ctime>
 #include <filesystem>
@@ -58,9 +59,13 @@ void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
 
     auto client = OrderBookClient(order_book, buffer);
 
+    // Shared client-id source — both producers fetch_add from this so IDs are
+    // unique across the feeder and the market maker without needing partitioned ranges.
+    std::atomic<uint64_t> client_id_counter{1};
+
     auto feeder = SimulatedFeeder(
         client,
-        {1, 2048},
+        client_id_counter,
         100.0,
         DistConfig{},
         static_cast<uint64_t>(iteration)
@@ -72,11 +77,12 @@ void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
     auto output_path = pnlCsvPath(runDir, iteration);
     auto pnl_tracker = PnLTracker(output_path);
     auto market_maker = MarketMaker(
-        client, 
+        client,
         pnl_tracker,
-        cfg.base_spread, 
-        cfg.skew_factor, 
-        cfg.order_quantity, 
+        client_id_counter,
+        cfg.base_spread,
+        cfg.skew_factor,
+        cfg.order_quantity,
         cfg.max_inventory
     );
 

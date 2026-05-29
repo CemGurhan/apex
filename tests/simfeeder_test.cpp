@@ -19,6 +19,7 @@ DistConfig OnlyLimit(double aggressive_prob = 0.0, double sigma = 0.001) {
     cfg.cancel_order_prob = 0.0;
     cfg.aggressive_prob = aggressive_prob;
     cfg.sigma = sigma;
+    cfg.arrive_rate_lambda = 10;  // tight inter-arrival so short test windows produce many events
     return cfg;
 }
 
@@ -27,6 +28,7 @@ DistConfig OnlyMarket() {
     cfg.market_order_prob = 1.0;
     cfg.limit_order_prob = 0.0;
     cfg.cancel_order_prob = 0.0;
+    cfg.arrive_rate_lambda = 10;
     return cfg;
 }
 
@@ -35,6 +37,7 @@ DistConfig OnlyCancel() {
     cfg.market_order_prob = 0.0;
     cfg.limit_order_prob = 0.0;
     cfg.cancel_order_prob = 1.0;
+    cfg.arrive_rate_lambda = 10;
     return cfg;
 }
 
@@ -50,11 +53,12 @@ Order MakeLimitSell(uint64_t client_id, double price, uint64_t qty) {
 TEST(SimulatedFeeder, RunsAndStopsWithoutCrashing) {
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
+    std::atomic<uint64_t> counter{1};
 
     {
         OrderBookClient client(book, buffer);
         {
-            SimulatedFeeder feeder(client);
+            SimulatedFeeder feeder(client, counter);
             feeder.Run();
             std::this_thread::sleep_for(20ms);
             feeder.Stop();
@@ -68,11 +72,12 @@ TEST(SimulatedFeeder, RunsAndStopsWithoutCrashing) {
 TEST(SimulatedFeeder, LimitOnlyConfigRestsOrdersOnBook) {
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
+    std::atomic<uint64_t> counter{1};
 
     {
         OrderBookClient client(book, buffer);
         {
-            SimulatedFeeder feeder(client, {1, 2048}, 100.0, OnlyLimit());
+            SimulatedFeeder feeder(client, counter, 100.0, OnlyLimit());
             feeder.Run();
             std::this_thread::sleep_for(50ms);
             feeder.Stop();
@@ -89,6 +94,7 @@ TEST(SimulatedFeeder, LimitOnlyConfigRestsOrdersOnBook) {
 TEST(SimulatedFeeder, MarketOnlyAgainstSeededBookProducesTrades) {
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
+    std::atomic<uint64_t> counter{1};
 
     std::atomic<int> trade_count{0};
     book.RegisterTradeEventAction([&](const Trade&) {
@@ -105,7 +111,7 @@ TEST(SimulatedFeeder, MarketOnlyAgainstSeededBookProducesTrades) {
     {
         OrderBookClient client(book, buffer);
         {
-            SimulatedFeeder feeder(client, {1, 2048}, 100.0, OnlyMarket());
+            SimulatedFeeder feeder(client, counter, 100.0, OnlyMarket());
             feeder.Run();
             std::this_thread::sleep_for(50ms);
             feeder.Stop();
@@ -119,6 +125,7 @@ TEST(SimulatedFeeder, MarketOnlyAgainstSeededBookProducesTrades) {
 TEST(SimulatedFeeder, CancelOnlyWithEmptyTrackingIsNoOp) {
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
+    std::atomic<uint64_t> counter{1};
 
     std::atomic<int> trade_count{0};
     book.RegisterTradeEventAction([&](const Trade&) {
@@ -130,7 +137,7 @@ TEST(SimulatedFeeder, CancelOnlyWithEmptyTrackingIsNoOp) {
         {
             // The feeder hasn't placed any limits, so its active_order_ids is empty;
             // every cancel pick should be a no-op early return.
-            SimulatedFeeder feeder(client, {1, 2048}, 100.0, OnlyCancel());
+            SimulatedFeeder feeder(client, counter, 100.0, OnlyCancel());
             feeder.Run();
             std::this_thread::sleep_for(50ms);
             feeder.Stop();
@@ -146,11 +153,12 @@ TEST(SimulatedFeeder, CancelOnlyWithEmptyTrackingIsNoOp) {
 TEST(SimulatedFeeder, StopHaltsBookActivity) {
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
+    std::atomic<uint64_t> counter{1};
 
     {
         OrderBookClient client(book, buffer);
         {
-            SimulatedFeeder feeder(client, {1, 2048}, 100.0, OnlyLimit());
+            SimulatedFeeder feeder(client, counter, 100.0, OnlyLimit());
             feeder.Run();
             std::this_thread::sleep_for(30ms);
             feeder.Stop();
@@ -174,6 +182,7 @@ TEST(SimulatedFeeder, MixedLimitAndCancelProgressesBookOverTime) {
     // shouldn't drain everything since limits dominate (limit_prob=0.7).
     OrderBook book(1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
+    std::atomic<uint64_t> counter{1};
 
     DistConfig cfg{};
     cfg.market_order_prob = 0.0;
@@ -181,11 +190,12 @@ TEST(SimulatedFeeder, MixedLimitAndCancelProgressesBookOverTime) {
     cfg.cancel_order_prob = 0.3;
     cfg.aggressive_prob = 0.0;
     cfg.sigma = 0.001;
+    cfg.arrive_rate_lambda = 10;
 
     {
         OrderBookClient client(book, buffer);
         {
-            SimulatedFeeder feeder(client, {1, 2048}, 100.0, cfg);
+            SimulatedFeeder feeder(client, counter, 100.0, cfg);
             feeder.Run();
             std::this_thread::sleep_for(100ms);
             feeder.Stop();
