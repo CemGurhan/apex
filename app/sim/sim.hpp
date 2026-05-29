@@ -1,12 +1,13 @@
 #pragma once
 
+#include <string>
 #include "simcfg.hpp"
 
 // runSim wires up a simulated feeder against an orderbook and a market maker,
 // then lets the feeder run for the configured duration before tearing
-// everything down. Each call produces its own PnL CSV. The iteration number
-// is used to seed the feeder's RNG.
-void runSim(const SimConfig& cfg, int iteration);
+// everything down.
+void runSim(const SimConfig& cfg, int iteration, const std::string& runDir);
 
-// startSimulation runs runSim cfg.sim_run_iterations times in a row.
 void startSimulation(const SimConfig& cfg);
+
+void clearRuns(const std::string& dir);
