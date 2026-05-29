@@ -4,7 +4,7 @@
 #include <thread>
 #include "side.hpp"
 #include "orderbookclient.hpp"
-#include "dist_config.hpp"
+#include "distconfig.hpp"
 
 class SimulatedFeeder : EventFeeder {
     private:

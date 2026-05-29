@@ -2,8 +2,8 @@
 
 #include <chrono>
 #include <string>
-#include "apex/dist_config.hpp"
-#include "apex/mm_strategy_config.hpp"
+#include "apex/distconfig.hpp"
+#include "apex/mmstratconfig.hpp"
 
 struct SimConfig {
     double tick_size;

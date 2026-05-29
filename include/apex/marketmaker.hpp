@@ -6,7 +6,7 @@
 #include <iostream>
 #include "orderbookclient.hpp"
 #include "pnl/tracker.hpp"
-#include "mm_strategy_config.hpp"
+#include "mmstratconfig.hpp"
 
 
 class MarketMaker {
