@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include "snapshot.hpp"
+#include "summary.hpp"
 
 class PnLTracker {
     private:
@@ -13,6 +14,21 @@ class PnLTracker {
         std::string summary_csv_path;
         int run;
         int seed;
+
+        // getMaxDrawdown gets the max drawdown observed across PnL
+        // in our snapshots.
+        double getMaxDrawdown() const {
+            auto max_pnl = 0.0;
+            auto max_drawdown = 0.0;
+            for (auto i =0; i < snapshots.size(); ++i) {
+                auto curr_pnl = snapshots[i].total_pnl;
+
+                max_pnl = std::max(max_pnl, curr_pnl);
+                max_drawdown = std::max(max_drawdown, max_pnl - curr_pnl);
+            }
+
+            return max_drawdown;
+        }
 
         // getSharpeRatio gets the sharpe ratio of the PnL changes within
         // our current snapshots.
@@ -51,17 +67,19 @@ class PnLTracker {
 
         void finaliseSummary() const {
             auto snapshot_empty = snapshots.empty();
-            std::ofstream summary(summary_csv_path, std::ios::app);
-            double final_total_pnl = snapshot_empty ? 0.0 : snapshots.back().total_pnl;
-            int64_t final_inventory = snapshot_empty ? 0 : snapshots.back().inventory;
+            Summary s{
+                .run             = run,
+                .seed            = seed,
+                .final_total_pnl = snapshot_empty ? 0.0 : snapshots.back().total_pnl,
+                .final_inventory = snapshot_empty ? 0   : snapshots.back().inventory,
+                .sharpe_ratio    = getSharpeRatio(),
+                .max_drawdown    = getMaxDrawdown()
+            };
 
-            auto sharpe_ratio = 0.0;
-            if (!snapshot_empty && snapshots.size() > 1) {
-                sharpe_ratio = getSharpeRatio();
-            }
-
-            summary << std::setprecision(std::numeric_limits<double>::max_digits10)
-                    << run << ',' << seed << ',' << final_total_pnl << ',' << final_inventory << ',' << sharpe_ratio << '\n';
+            std::ofstream out(summary_csv_path, std::ios::app);
+            out << std::setprecision(std::numeric_limits<double>::max_digits10)
+                << s.run << ',' << s.seed << ',' << s.final_total_pnl << ','
+                << s.final_inventory << ',' << s.sharpe_ratio << ',' << s.max_drawdown << '\n';
         }
 
     public:
