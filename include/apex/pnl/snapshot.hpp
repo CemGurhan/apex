@@ -1,3 +1,5 @@
+#pragma once
+
 #include <functional>
 
 // PnLSnapshot is a snapshot of PnL at a given 

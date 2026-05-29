@@ -7,7 +7,6 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <limits>
 #include <random>
 #include <sstream>
 #include <thread>
@@ -36,6 +35,11 @@ std::string newRunDir(const std::string& parent) {
     auto dir = std::filesystem::path(parent) / ("run_" + generateUuid());
     std::filesystem::create_directories(dir);
     return dir.string();
+}
+
+void createInterSummary(const std::string& run_dir) {
+    std::ofstream((std::filesystem::path(run_dir) / "inter_summary.csv").string())
+        << "median_pnl,mean_pnl,stdev_pnl,win_rate,worst_max_drawdown,best_max_drawdown,median_sharpe,mean_sharpe\n";
 }
 
 std::string pnlCsvPath(const std::string& dir, int iteration) {
@@ -76,8 +80,8 @@ void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
     std::this_thread::sleep_for(std::chrono::seconds(1)); // let some orders flow in before starting market maker
 
     auto output_path = pnlCsvPath(runDir, iteration);
-    auto summary_path = (std::filesystem::path(runDir) / "summary.csv").string();
-    auto pnl_tracker = PnLTracker(output_path, summary_path, iteration, iteration);
+    auto intra_summary_path = (std::filesystem::path(runDir) / "intra_summary.csv").string();
+    auto pnl_tracker = PnLTracker(output_path, intra_summary_path, iteration, iteration);
     auto market_maker = MarketMaker(
         client,
         pnl_tracker,
@@ -109,13 +113,15 @@ void startSimulation(const SimConfig& cfg) {
     // is used as a seed in the sim feeder's RNG. Thus, every iteration
     // starts off with similar outputs after expansion. As the sim feeder calls the
     // RNG the outputs between each iteration should start looking
-    // very different. The longer we run the sim feeder the less the initial similarity 
+    // very different. The longer we run the sim feeder the less the initial similarity
     // will be of concern.
     // seed_seq could be used to apply noise to each seed if the sim feeder
     // is not random enough.
     for (int i = 1; i <= cfg.sim_run_iterations; ++i) {
         runSim(cfg, i, run_dir);
     }
+
+    createInterSummary(run_dir);
 
     std::cout << "All simulations completed successfully. Outputs in: " << run_dir << "\n";
 }
