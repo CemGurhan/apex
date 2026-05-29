@@ -4,8 +4,10 @@
 #include <chrono>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <sstream>
 #include <thread>
@@ -36,6 +38,37 @@ std::string newRunDir(const std::string& parent) {
     return dir.string();
 }
 
+struct PnLTail {
+    double total_pnl = 0.0;
+    int64_t inventory = 0;
+};
+
+PnLTail readPnLTail(const std::string& path) {
+    std::ifstream in(path);
+    std::string line, last;
+    while (std::getline(in, line)) {
+        if (!line.empty()) last = line;
+    }
+    if (last.empty() || last.starts_with("timestamp")) return {};
+    size_t i = 0;
+    for (int c = 0; c < 3; ++c) i = last.find(',', i) + 1;
+    size_t j = last.find(',', i);
+    return {
+        .total_pnl = std::stod(last.substr(i, j - i)),
+        .inventory = std::stoll(last.substr(j + 1)),
+    };
+}
+
+void writePnLTail(const std::string& runDir, int iteration, const PnLTail& tail) {
+    std::ofstream summary((std::filesystem::path(runDir) / "summary.csv").string(), std::ios::app);
+    summary << std::setprecision(std::numeric_limits<double>::max_digits10)
+            << iteration << ',' << iteration << ',' << tail.total_pnl << ',' << tail.inventory << '\n';
+}
+
+void finalisePnLSummary(const std::string& runDir, int iteration, const std::string& pnl_csv_path) {
+    writePnLTail(runDir, iteration, readPnLTail(pnl_csv_path));
+}
+
 std::string pnlCsvPath(const std::string& dir, int iteration) {
     auto now = std::chrono::system_clock::now();
     auto t = std::chrono::system_clock::to_time_t(now);
@@ -59,8 +92,7 @@ void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
 
     auto client = OrderBookClient(order_book, buffer);
 
-    // Shared client-id source — both producers fetch_add from this so IDs are
-    // unique across the feeder and the market maker without needing partitioned ranges.
+    // Shared client-id source.
     std::atomic<uint64_t> client_id_counter{1};
 
     auto feeder = SimulatedFeeder(
@@ -92,7 +124,7 @@ void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
     std::this_thread::sleep_for(cfg.duration);
 
     pnl_tracker.WriteSnapshotsToCSV();
-    
+    finalisePnLSummary(runDir, iteration, output_path);
 
     // prevent stale events hitting trade event action on destroyed
     // market maker.
@@ -103,6 +135,9 @@ void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
 void startSimulation(const SimConfig& cfg) {
     std::filesystem::create_directories(cfg.pnl_csv_dir);
     auto run_dir = newRunDir(cfg.pnl_csv_dir);
+
+    std::ofstream((std::filesystem::path(run_dir) / "summary.csv").string())
+        << "run,seed,final_total_pnl,final_inventory\n";
 
     // NOTE: we use a mersene twister RNG in the sim feeder. Each iteration here
     // is used as a seed in the sim feeder's RNG. Thus, every iteration

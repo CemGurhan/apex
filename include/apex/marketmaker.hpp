@@ -8,7 +8,6 @@
 #include "pnl/tracker.hpp"
 #include "mmstratconfig.hpp"
 
-
 class MarketMaker {
     private:
         std::optional<uint64_t> active_bid_client_id;
