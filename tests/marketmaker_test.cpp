@@ -81,10 +81,17 @@ FinalState runScenario(
     std::atomic<int> trades{0};
     int64_t final_inv = 0;
 
+    MMStrategyConfig mm_cfg{
+        .base_spread    = base_spread,
+        .skew_factor    = skew,
+        .order_quantity = qty,
+        .max_inventory  = max_inv,
+    };
+
     {
         OrderBookClient client(book, buffer);
         {
-            MarketMaker mm(client, tracker, counter, base_spread, skew, qty, max_inv);
+            MarketMaker mm(client, tracker, counter, mm_cfg);
 
             // Register before Start so the trade callback is in place when the
             // first MM-driven match (if any) fires. Safe to register here

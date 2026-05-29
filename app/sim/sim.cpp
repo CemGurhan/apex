@@ -67,7 +67,7 @@ void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
         client,
         client_id_counter,
         100.0,
-        DistConfig{},
+        cfg.dist,
         static_cast<uint64_t>(iteration)
     );
     feeder.Run();
@@ -80,10 +80,7 @@ void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
         client,
         pnl_tracker,
         client_id_counter,
-        cfg.base_spread,
-        cfg.skew_factor,
-        cfg.order_quantity,
-        cfg.max_inventory
+        cfg.mm_strategy
     );
 
     order_book.RegisterTradeEventAction([&market_maker](const Trade& trade) {

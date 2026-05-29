@@ -10,17 +10,39 @@ namespace {
 
 constexpr const char* kSimConfigPath = "app/sim/simcfg.yaml";
 
+MMStrategyConfig parseMMStrategy(YAML::Node node) {
+    return MMStrategyConfig{
+        .base_spread    = node["base_spread"].as<double>(),
+        .skew_factor    = node["skew_factor"].as<double>(),
+        .order_quantity = node["order_quantity"].as<uint64_t>(),
+        .max_inventory  = node["max_inventory"].as<int64_t>(),
+    };
+}
+
+DistConfig parseDist(YAML::Node node) {
+    DistConfig d{};
+    if (!node) return d;
+    if (auto n = node["sigma"])                 d.sigma                 = n.as<double>();
+    if (auto n = node["fair_price_lambda"])     d.fair_price_lambda     = n.as<double>();
+    if (auto n = node["arrive_rate_lambda"])    d.arrive_rate_lambda    = n.as<double>();
+    if (auto n = node["order_qty_size_lambda"]) d.order_qty_size_lambda = n.as<double>();
+    if (auto n = node["side_prob"])             d.side_prob             = n.as<double>();
+    if (auto n = node["aggressive_prob"])       d.aggressive_prob       = n.as<double>();
+    if (auto n = node["market_order_prob"])     d.market_order_prob     = n.as<double>();
+    if (auto n = node["cancel_order_prob"])     d.cancel_order_prob     = n.as<double>();
+    if (auto n = node["limit_order_prob"])      d.limit_order_prob      = n.as<double>();
+    return d;
+}
+
 SimConfig loadSimConfig(const std::string& path) {
     auto node = YAML::LoadFile(path);
     return SimConfig{
         .tick_size          = node["tick_size"].as<double>(),
-        .base_spread        = node["base_spread"].as<double>(),
-        .skew_factor        = node["skew_factor"].as<double>(),
-        .order_quantity     = node["order_quantity"].as<uint64_t>(),
-        .max_inventory      = node["max_inventory"].as<int64_t>(),
         .duration           = std::chrono::seconds(node["duration_seconds"].as<int64_t>()),
         .pnl_csv_dir        = node["pnl_csv_dir"].as<std::string>(),
         .sim_run_iterations = node["sim_run_iterations"].as<int>(),
+        .mm_strategy        = parseMMStrategy(node["mm_strategy"]),
+        .dist               = parseDist(node["dist"]),
     };
 }
 

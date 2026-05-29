@@ -6,6 +6,7 @@
 #include <iostream>
 #include "orderbookclient.hpp"
 #include "pnl/tracker.hpp"
+#include "mm_strategy_config.hpp"
 
 
 class MarketMaker {
@@ -15,24 +16,22 @@ class MarketMaker {
 
         OrderBookClient& oBookClient;
         PnLTracker& pnlTracker;
-        // base_spread is the minimum spread width. Can be widened or tightened 
-        // depending on how the strategy is performing.
-        double base_spread;
-        // skew_factor dictates how aggressively to shift quotes.
-        double skew_factor;
-        // order_quantity is the size of each quote order placed by the MarketMaker.
-        uint64_t order_quantity;
-        // max_inventory is the maximum inventory the MarketMaker is willing to hold.
-        int64_t max_inventory;
+        // Strategy knobs (base_spread, skew_factor, order_quantity, max_inventory).
+        // tick_size is also in here but is unused by the MM itself — it lives in this
+        // struct because it co-configures the venue the MM quotes on.
+        MMStrategyConfig config;
 
-        // inventory tracks the current net position of the MarketMaker. Positive means long, 
+        // inventory tracks the current net position of the MarketMaker. Positive means long,
         // negative means short.
         int64_t inventory = 0;
 
+        // client_id_counter is shared with any other producer hitting the same
+        // orderbook (e.g. the simulated feeder). Each fetch_add yields a unique
+        // client_id across producers, so no ID-space partitioning is needed.
         std::atomic<uint64_t>& client_id_counter;
 
         // getSpreadPrices returns the bid/ask price doubles to place around fair.
-        // Returns {0, 0} when the book is empty. 
+        // Returns {0, 0} when the book is empty.
         std::pair<double, double> getSpreadPrices() {
             auto best_bid_price = oBookClient.GetBestBid();
             auto best_ask_price = oBookClient.GetBestAsk();
@@ -56,9 +55,9 @@ class MarketMaker {
             // to fill (good - less shorting), bids will will be more likely to fill
             // (good - more long). reservation price is where we're indifferent
             // between buying and selling.
-            auto reservation_price = fair - (inventory * skew_factor);
+            auto reservation_price = fair - (inventory * config.skew_factor);
 
-            auto shift = base_spread / 2.0;
+            auto shift = config.base_spread / 2.0;
             auto bid_price = reservation_price - shift;
             auto ask_price = reservation_price + shift;
 
@@ -79,7 +78,7 @@ class MarketMaker {
                 .type = OrderBookEventType::LimitOrder,
                 .order = Order{
                     .client_id = client_id,
-                    .quantity = order_quantity,
+                    .quantity = config.order_quantity,
                     .price = price,
                     .side = side,
                     .type = OrderType::Limit
@@ -94,10 +93,10 @@ class MarketMaker {
             active_ask_client_id = std::nullopt;
 
             auto [bid_price, ask_price] = getSpreadPrices();
-            auto order_qty_i64 = static_cast<int64_t>(order_quantity);
+            auto order_qty_i64 = static_cast<int64_t>(config.order_quantity);
 
-            auto too_long = inventory + order_qty_i64 > max_inventory;
-            auto too_short = inventory - order_qty_i64 < -max_inventory;
+            auto too_long = inventory + order_qty_i64 > config.max_inventory;
+            auto too_short = inventory - order_qty_i64 < -config.max_inventory;
 
             if (bid_price == 0.0 && ask_price == 0.0) {
                 throw std::runtime_error("Cannot place quotes: no bids or asks in the book");
@@ -134,20 +133,14 @@ class MarketMaker {
                 OrderBookClient& client,
                 PnLTracker& pnlTracker,
                 std::atomic<uint64_t>& client_id_counter,
-                double base_spread,
-                double skew_factor,
-                uint64_t order_quantity,
-                int64_t max_inventory
+                MMStrategyConfig config
             ) :
             oBookClient{client},
             pnlTracker{pnlTracker},
-            base_spread{base_spread},
-            skew_factor{skew_factor},
-            order_quantity{order_quantity},
-            max_inventory{max_inventory},
+            config{config},
             client_id_counter{client_id_counter}
             {}
-        
+
             void Start() {
                 try {
                     placeQuotes();
@@ -187,7 +180,7 @@ class MarketMaker {
                     side,
                     fill_quantity,
                     trade.price,
-                    marketMidPrice(), 
+                    marketMidPrice(),
                     inventory,
                     oBookClient.GetTickSize()
                 );

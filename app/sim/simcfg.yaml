@@ -1,8 +1,21 @@
 tick_size:          0.01
-base_spread:        0.8
-skew_factor:        0.1
-order_quantity:     10
-max_inventory:      100
 duration_seconds:   30
 pnl_csv_dir:        app/sim/pnl
 sim_run_iterations: 5
+
+mm_strategy:
+  base_spread:    0.8
+  skew_factor:    0.1
+  order_quantity: 10
+  max_inventory:  100
+
+dist:
+  sigma:                 0.01
+  fair_price_lambda:     10
+  arrive_rate_lambda:    0.1
+  order_qty_size_lambda: 10
+  side_prob:             0.5
+  aggressive_prob:       0.1
+  market_order_prob:     0.1
+  cancel_order_prob:     0.3
+  limit_order_prob:      0.6
