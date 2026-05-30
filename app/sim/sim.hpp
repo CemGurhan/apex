@@ -2,8 +2,9 @@
 
 #include <string>
 #include "simcfg.hpp"
+#include "apex/pnl/intra_summary.hpp"
 
-void runSim(const SimConfig& cfg, int iteration, const std::string& runDir);
+IntraSummary runSim(const SimConfig& cfg, int iteration, const std::string& runDir);
 
 void startSimulation(const SimConfig& cfg);
 

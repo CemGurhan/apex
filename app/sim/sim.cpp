@@ -12,6 +12,7 @@
 #include <thread>
 #include "apex/simfeeder.hpp"
 #include "apex/marketmaker.hpp"
+#include "summary.hpp"
 
 namespace {
 
@@ -37,9 +38,11 @@ std::string newRunDir(const std::string& parent) {
     return dir.string();
 }
 
-void createInterSummary(const std::string& run_dir) {
+void createInterSummary(const std::string& run_dir, const std::vector<IntraSummary>& summaries) {
     std::ofstream((std::filesystem::path(run_dir) / "inter_summary.csv").string())
         << "median_pnl,mean_pnl,stdev_pnl,win_rate,worst_max_drawdown,best_max_drawdown,median_sharpe,mean_sharpe\n";
+
+    auto summary = Summary(summaries);
 }
 
 std::string pnlCsvPath(const std::string& dir, int iteration) {
@@ -59,7 +62,7 @@ std::string pnlCsvPath(const std::string& dir, int iteration) {
 
 }
 
-void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
+IntraSummary runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
     auto order_book = OrderBook(cfg.tick_size);
     auto buffer = RingBuffer<OrderBookEvent, 1024>();
 
@@ -97,17 +100,22 @@ void runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
 
     std::this_thread::sleep_for(cfg.duration);
 
-    pnl_tracker.WriteSnapshotsToCSV();
+    pnl_tracker.WriteRunResultsToCSV();
+    auto summary = pnl_tracker.GetIntraSummary();
 
     // prevent stale events hitting trade event action on destroyed
     // market maker.
     client.Stop();
     feeder.Stop();
+
+    return summary;
 }
 
 void startSimulation(const SimConfig& cfg) {
     std::filesystem::create_directories(cfg.pnl_csv_dir);
     auto run_dir = newRunDir(cfg.pnl_csv_dir);
+    std::vector<IntraSummary> summaries;
+    summaries.reserve(cfg.sim_run_iterations);
 
     // NOTE: we use a mersene twister RNG in the sim feeder. Each iteration here
     // is used as a seed in the sim feeder's RNG. Thus, every iteration
@@ -118,10 +126,11 @@ void startSimulation(const SimConfig& cfg) {
     // seed_seq could be used to apply noise to each seed if the sim feeder
     // is not random enough.
     for (int i = 1; i <= cfg.sim_run_iterations; ++i) {
-        runSim(cfg, i, run_dir);
+        auto summary = runSim(cfg, i, run_dir);
+        summaries.push_back(summary);
     }
 
-    createInterSummary(run_dir);
+    createInterSummary(run_dir, summaries);
 
     std::cout << "All simulations completed successfully. Outputs in: " << run_dir << "\n";
 }
