@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <sstream>
 #include <thread>
@@ -39,10 +40,13 @@ std::string newRunDir(const std::string& parent) {
 }
 
 void createInterSummary(const std::string& run_dir, const std::vector<IntraSummary>& summaries) {
-    std::ofstream((std::filesystem::path(run_dir) / "inter_summary.csv").string())
-        << "median_pnl,mean_pnl,stdev_pnl,win_rate,worst_max_drawdown,best_max_drawdown,median_sharpe,mean_sharpe\n";
-
     auto summary = Summary(summaries);
+    std::ofstream out((std::filesystem::path(run_dir) / "inter_summary.csv").string());
+    out << "median_pnl,mean_pnl,stdev_pnl,win_rate,worst_max_drawdown,best_max_drawdown,median_sharpe,mean_sharpe\n";
+    out << std::setprecision(std::numeric_limits<double>::max_digits10)
+        << summary.median_pnl << ',' << summary.mean_pnl << ',' << summary.stdev_pnl << ','
+        << summary.win_rate << ',' << summary.worst_max_drawdown << ',' << summary.best_max_drawdown << ','
+        << summary.median_sharpe << ',' << summary.mean_sharpe << '\n';
 }
 
 std::string pnlCsvPath(const std::string& dir, int iteration) {
