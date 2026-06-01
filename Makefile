@@ -1,7 +1,7 @@
 BUILD_DIR := build
 BIN       := $(BUILD_DIR)/apex
 
-.PHONY: all build build-apex sim test clean help
+.PHONY: all build build-apex sim clear html test clean help
 
 all: build-apex
 
@@ -18,6 +18,13 @@ build:
 sim: build-apex
 	@$(BIN) --sim
 
+clear: build-apex
+	@$(BIN) --clear
+
+html: build-apex
+	@test -n "$(RUN_DIR)" || (echo "Usage: make html RUN_DIR=<path/to/run_<uuid>>"; exit 1)
+	@$(BIN) --html $(RUN_DIR)
+
 test: build
 	@cd $(BUILD_DIR) && ctest --output-on-failure
 
@@ -26,7 +33,9 @@ clean:
 
 help:
 	@echo "Targets:"
-	@echo "  make           Build the apex binary."
-	@echo "  make sim       Build apex and run the --sim demo."
-	@echo "  make test      Build everything and run all tests."
-	@echo "  make clean     Remove the build directory."
+	@echo "  make                       Build the apex binary."
+	@echo "  make sim                   Build apex and run the --sim demo."
+	@echo "  make clear                 Build apex and remove all run_<uuid> subdirs under the cfg's pnl_csv_dir."
+	@echo "  make html RUN_DIR=<path>   Build apex and generate report.html inside the given run dir."
+	@echo "  make test                  Build everything and run all tests."
+	@echo "  make clean                 Remove the build directory."

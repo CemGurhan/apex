@@ -19,7 +19,7 @@ set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 set(YAML_CPP_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(yaml-cpp)
 
-add_executable(apex app/main.cpp app/sim/sim.cpp)
+add_executable(apex app/main.cpp app/sim/sim.cpp app/sim/html/html.cpp)
 target_include_directories(apex PRIVATE include app)
 target_link_libraries(apex PRIVATE yaml-cpp::yaml-cpp)
 

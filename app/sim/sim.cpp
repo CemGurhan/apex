@@ -13,6 +13,7 @@
 #include <thread>
 #include "apex/simfeeder.hpp"
 #include "apex/marketmaker.hpp"
+#include "html/html.hpp"
 #include "summary.hpp"
 
 namespace {
@@ -135,6 +136,7 @@ void startSimulation(const SimConfig& cfg) {
     }
 
     createInterSummary(run_dir, summaries);
+    generateHtml(run_dir);
 
     std::cout << "All simulations completed successfully. Outputs in: " << run_dir << "\n";
 }

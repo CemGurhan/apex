@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 #include <yaml-cpp/yaml.h>
+#include "sim/html/html.hpp"
 #include "sim/sim.hpp"
 #include "sim/simcfg.hpp"
 
@@ -53,6 +54,7 @@ void printUsage(std::string_view program) {
         << "Flags:\n"
         << "  --sim                Run the simulated feeder against an orderbook + market maker.\n"
         << "  --clear              Remove every run_<uuid> subdir under the configured pnl_csv_dir.\n"
+        << "  --html <run_dir>     Generate report.html from the intra/inter summary CSVs inside <run_dir>.\n"
         << "\n"
         << "Options:\n"
         << "  --cfg <path>         Path to the sim YAML config. Defaults to " << kSimConfigPath << ".\n";
@@ -117,6 +119,23 @@ int main(int argc, char** argv) {
         if (!cfg) return 1;
         clearRuns(cfg->pnl_csv_dir);
         std::cout << "Cleared all run_<uuid> subdirs under: " << cfg->pnl_csv_dir << "\n";
+        return 0;
+    }
+
+    if (flag == "--html") {
+        if (argc < 3) {
+            std::cerr << "--html requires a run directory argument\n\n";
+            printUsage(argv[0]);
+            return 1;
+        }
+        std::string run_dir = argv[2];
+        try {
+            generateHtml(run_dir);
+        } catch (const std::exception& e) {
+            std::cerr << "failed to generate html report: " << e.what() << "\n";
+            return 1;
+        }
+        std::cout << "Wrote: " << run_dir << "/report.html\n";
         return 0;
     }
 
