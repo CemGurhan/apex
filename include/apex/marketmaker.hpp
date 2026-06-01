@@ -22,7 +22,7 @@ class MarketMaker {
 
         // inventory tracks the current net position of the MarketMaker. Positive means long,
         // negative means short.
-        int64_t inventory = 0;
+        double inventory = 0;
 
         // client_id_counter is shared with any other producer hitting the same
         // orderbook (e.g. the simulated feeder). Each fetch_add yields a unique
@@ -53,7 +53,7 @@ class MarketMaker {
 
             void Start();
 
-            int64_t GetInventory() const { return inventory; }
+            double GetInventory() const { return inventory; }
 
             void TradeEventAction(const Trade& trade);
 };

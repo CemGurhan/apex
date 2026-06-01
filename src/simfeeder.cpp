@@ -49,7 +49,7 @@ void SimulatedFeeder::pushOrderBookEvent(
         .type = type,
         .order = Order{
             .client_id = assigned_id,
-            .quantity = static_cast<uint64_t>(order_qty_size(rng)) + 1,
+            .quantity = order_qty_size(rng) + 1.0,
             .price = price,
             .side = side,
             .create_time = static_cast<uint64_t>(
@@ -78,7 +78,7 @@ void SimulatedFeeder::generateCancelOrder() {
         .type = OrderBookEventType::CancelOrder,
         .order = Order{
             .client_id = cancel_id,
-            .quantity = 0,
+            .quantity = 0.0,
             .price = 0.0,
             .side = Side::Buy,
             .create_time = 0,

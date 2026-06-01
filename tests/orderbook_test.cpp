@@ -3,36 +3,36 @@
 
 namespace {
 
-Order MakeLimitBuy(uint64_t client_id, double price, uint64_t qty) {
+Order MakeLimitBuy(uint64_t client_id, double price, double qty) {
     return Order{client_id, qty, 0, price, Side::Buy, 0, OrderType::Limit};
 }
 
-Order MakeLimitSell(uint64_t client_id, double price, uint64_t qty) {
+Order MakeLimitSell(uint64_t client_id, double price, double qty) {
     return Order{client_id, qty, 0, price, Side::Sell, 0, OrderType::Limit};
 }
 
-Order MakeMarketBuy(uint64_t client_id, uint64_t qty) {
+Order MakeMarketBuy(uint64_t client_id, double qty) {
     return Order{client_id, qty, 0, 0.0, Side::Buy, 0, OrderType::Market};
 }
 
-Order MakeMarketSell(uint64_t client_id, uint64_t qty) {
+Order MakeMarketSell(uint64_t client_id, double qty) {
     return Order{client_id, qty, 0, 0.0, Side::Sell, 0, OrderType::Market};
 }
 
 
 TEST(OrderBook, EmptyBookBestBidIsZero) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     EXPECT_EQ(book.GetBestBid(), 0);
 }
 
 TEST(OrderBook, EmptyBookBestAskIsZero) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     EXPECT_EQ(book.GetBestAsk(), 0);
 }
 
 
 TEST(OrderBook, LimitBuyRestsOnEmptyBook) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     auto result = book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
 
     EXPECT_EQ(result.quantity, 10);
@@ -42,7 +42,7 @@ TEST(OrderBook, LimitBuyRestsOnEmptyBook) {
 }
 
 TEST(OrderBook, LimitSellRestsOnEmptyBook) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     auto result = book.AddLimitOrder(MakeLimitSell(1, 100, 10));
 
     EXPECT_EQ(result.quantity, 10);
@@ -53,7 +53,7 @@ TEST(OrderBook, LimitSellRestsOnEmptyBook) {
 
 
 TEST(OrderBook, BestBidIsHighest) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 90, 5));
     book.AddLimitOrder(MakeLimitBuy(2, 100, 5));
     book.AddLimitOrder(MakeLimitBuy(3, 95, 5));
@@ -62,7 +62,7 @@ TEST(OrderBook, BestBidIsHighest) {
 }
 
 TEST(OrderBook, BestAskIsLowest) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 110, 5));
     book.AddLimitOrder(MakeLimitSell(2, 100, 5));
     book.AddLimitOrder(MakeLimitSell(3, 105, 5));
@@ -72,7 +72,7 @@ TEST(OrderBook, BestAskIsLowest) {
 
 
 TEST(OrderBook, LimitBuyFullyFilledByRestingSell) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
 
     auto result = book.AddLimitOrder(MakeLimitBuy(2, 100, 10));
@@ -83,7 +83,7 @@ TEST(OrderBook, LimitBuyFullyFilledByRestingSell) {
 }
 
 TEST(OrderBook, LimitBuyPriceTooLowForSell) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 150, 10));
 
     auto result = book.AddLimitOrder(MakeLimitBuy(2, 100, 10));
@@ -95,7 +95,7 @@ TEST(OrderBook, LimitBuyPriceTooLowForSell) {
 }
 
 TEST(OrderBook, LimitSellFullyFilledByRestingBuy) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
 
     auto result = book.AddLimitOrder(MakeLimitSell(2, 100, 10));
@@ -106,7 +106,7 @@ TEST(OrderBook, LimitSellFullyFilledByRestingBuy) {
 }
 
 TEST(OrderBook, LimitSellPriceTooHighForBuy) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
 
     auto result = book.AddLimitOrder(MakeLimitSell(2, 150, 10));
@@ -120,7 +120,7 @@ TEST(OrderBook, LimitSellPriceTooHighForBuy) {
 
 
 TEST(OrderBook, LimitBuyPartialFillRestsRemainder) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
 
     auto result = book.AddLimitOrder(MakeLimitBuy(2, 100, 15));
@@ -132,7 +132,7 @@ TEST(OrderBook, LimitBuyPartialFillRestsRemainder) {
 }
 
 TEST(OrderBook, LimitSellPartialFillRestsRemainder) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 100, 5));
 
     auto result = book.AddLimitOrder(MakeLimitSell(2, 100, 15));
@@ -145,7 +145,7 @@ TEST(OrderBook, LimitSellPartialFillRestsRemainder) {
 
 
 TEST(OrderBook, LimitBuySmallerThanRestingSell) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 20));
 
     auto result = book.AddLimitOrder(MakeLimitBuy(2, 100, 5));
@@ -156,7 +156,7 @@ TEST(OrderBook, LimitBuySmallerThanRestingSell) {
 }
 
 TEST(OrderBook, LimitBuyCrossesMultipleAskLevels) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
     book.AddLimitOrder(MakeLimitSell(2, 101, 5));
     book.AddLimitOrder(MakeLimitSell(3, 102, 5));
@@ -169,7 +169,7 @@ TEST(OrderBook, LimitBuyCrossesMultipleAskLevels) {
 }
 
 TEST(OrderBook, LimitSellCrossesMultipleBidLevels) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 100, 5));
     book.AddLimitOrder(MakeLimitBuy(2, 99, 5));
     book.AddLimitOrder(MakeLimitBuy(3, 98, 5));
@@ -182,7 +182,7 @@ TEST(OrderBook, LimitSellCrossesMultipleBidLevels) {
 }
 
 TEST(OrderBook, LimitBuyBelowBestAskRests) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 105, 10));
 
     auto result = book.AddLimitOrder(MakeLimitBuy(2, 100, 10));
@@ -194,7 +194,7 @@ TEST(OrderBook, LimitBuyBelowBestAskRests) {
 }
 
 TEST(OrderBook, LimitSellAboveBestBidRests) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 95, 10));
 
     auto result = book.AddLimitOrder(MakeLimitSell(2, 100, 10));
@@ -206,7 +206,7 @@ TEST(OrderBook, LimitSellAboveBestBidRests) {
 }
 
 TEST(OrderBook, FIFOPriorityWithinLevel) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 10)); // first
     book.AddLimitOrder(MakeLimitSell(2, 100, 10)); // second
 
@@ -221,7 +221,7 @@ TEST(OrderBook, FIFOPriorityWithinLevel) {
 }
 
 TEST(OrderBook, MarketBuyFillsAgainstAsks) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
 
     auto result = book.AddMarketOrder(MakeMarketBuy(2, 10));
@@ -232,7 +232,7 @@ TEST(OrderBook, MarketBuyFillsAgainstAsks) {
 }
 
 TEST(OrderBook, MarketSellFillsAgainstBids) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
 
     auto result = book.AddMarketOrder(MakeMarketSell(2, 10));
@@ -243,7 +243,7 @@ TEST(OrderBook, MarketSellFillsAgainstBids) {
 }
 
 TEST(OrderBook, MarketBuyCrossesMultipleLevels) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
     book.AddLimitOrder(MakeLimitSell(2, 101, 5));
     book.AddLimitOrder(MakeLimitSell(3, 102, 5));
@@ -256,7 +256,7 @@ TEST(OrderBook, MarketBuyCrossesMultipleLevels) {
 }
 
 TEST(OrderBook, MarketBuyPartialFillInsufficientLiquidity) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
 
     auto result = book.AddMarketOrder(MakeMarketBuy(2, 20));
@@ -268,7 +268,7 @@ TEST(OrderBook, MarketBuyPartialFillInsufficientLiquidity) {
 }
 
 TEST(OrderBook, MarketOrderOnEmptyBookNoFill) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     auto result = book.AddMarketOrder(MakeMarketBuy(1, 10));
 
     EXPECT_EQ(result.filled_quantity, 0);
@@ -277,17 +277,17 @@ TEST(OrderBook, MarketOrderOnEmptyBookNoFill) {
 }
 
 TEST(OrderBook, AddLimitOrderThrowsOnMarketType) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     EXPECT_THROW(book.AddLimitOrder(MakeMarketBuy(1, 10)), std::invalid_argument);
 }
 
 TEST(OrderBook, AddMarketOrderThrowsOnLimitType) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     EXPECT_THROW(book.AddMarketOrder(MakeLimitBuy(1, 100, 10)), std::invalid_argument);
 }
 
 TEST(OrderBook, EmptyLevelRemovedAfterFullFill) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
     book.AddLimitOrder(MakeLimitSell(2, 105, 10));
 
@@ -299,7 +299,7 @@ TEST(OrderBook, EmptyLevelRemovedAfterFullFill) {
 // ── Cancel Order ──
 
 TEST(CancelOrder, CancelRestingBidReturnsOrderSnapshot) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
 
     auto cancelled = book.CancelOrder(1);
@@ -313,7 +313,7 @@ TEST(CancelOrder, CancelRestingBidReturnsOrderSnapshot) {
 }
 
 TEST(CancelOrder, CancelRestingAskReturnsOrderSnapshot) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
 
     auto cancelled = book.CancelOrder(1);
@@ -326,7 +326,7 @@ TEST(CancelOrder, CancelRestingAskReturnsOrderSnapshot) {
 }
 
 TEST(CancelOrder, CancelRemovesBidFromBook) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
 
     book.CancelOrder(1);
@@ -335,7 +335,7 @@ TEST(CancelOrder, CancelRemovesBidFromBook) {
 }
 
 TEST(CancelOrder, CancelRemovesAskFromBook) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
 
     book.CancelOrder(1);
@@ -344,13 +344,13 @@ TEST(CancelOrder, CancelRemovesAskFromBook) {
 }
 
 TEST(CancelOrder, ReturnsNulloptOnNonExistentOrderId) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
 
     EXPECT_FALSE(book.CancelOrder(999).has_value());
 }
 
 TEST(CancelOrder, CancelBestBidRevealsNextBest) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 100, 5));
     book.AddLimitOrder(MakeLimitBuy(2, 90, 5));
 
@@ -360,7 +360,7 @@ TEST(CancelOrder, CancelBestBidRevealsNextBest) {
 }
 
 TEST(CancelOrder, CancelBestAskRevealsNextBest) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
     book.AddLimitOrder(MakeLimitSell(2, 110, 5));
 
@@ -370,7 +370,7 @@ TEST(CancelOrder, CancelBestAskRevealsNextBest) {
 }
 
 TEST(CancelOrder, CancelOneOfTwoAtSameLevelKeepsLevel) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));
     book.AddLimitOrder(MakeLimitSell(2, 100, 5));
 
@@ -380,7 +380,7 @@ TEST(CancelOrder, CancelOneOfTwoAtSameLevelKeepsLevel) {
 }
 
 TEST(CancelOrder, CancelHeadLeavesRemainingMatchable) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 5)); // head
     book.AddLimitOrder(MakeLimitSell(2, 100, 10)); // tail
 
@@ -394,7 +394,7 @@ TEST(CancelOrder, CancelHeadLeavesRemainingMatchable) {
 }
 
 TEST(CancelOrder, CancelTailLeavesHeadMatchable) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 5)); // head
     book.AddLimitOrder(MakeLimitSell(2, 100, 10)); // tail
 
@@ -407,7 +407,7 @@ TEST(CancelOrder, CancelTailLeavesHeadMatchable) {
 }
 
 TEST(CancelOrder, CancelMiddleOfThreeOrderLevel) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 5));  // head
     book.AddLimitOrder(MakeLimitSell(2, 100, 5));  // middle
     book.AddLimitOrder(MakeLimitSell(3, 100, 5));  // tail
@@ -422,7 +422,7 @@ TEST(CancelOrder, CancelMiddleOfThreeOrderLevel) {
 }
 
 TEST(CancelOrder, CancelPartiallyFilledOrderReturnsCorrectSnapshot) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 20));
     book.AddLimitOrder(MakeLimitBuy(2, 100, 5)); // partially fills order 1
 
@@ -434,7 +434,7 @@ TEST(CancelOrder, CancelPartiallyFilledOrderReturnsCorrectSnapshot) {
 }
 
 TEST(CancelOrder, DoubleCancelReturnsNullopt) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitBuy(1, 100, 10));
 
     ASSERT_TRUE(book.CancelOrder(1).has_value());
@@ -442,7 +442,7 @@ TEST(CancelOrder, DoubleCancelReturnsNullopt) {
 }
 
 TEST(CancelOrder, CancelFilledOrderReturnsNullopt) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
     book.AddLimitOrder(MakeLimitBuy(2, 100, 10)); // fully fills order 1
 
@@ -452,7 +452,7 @@ TEST(CancelOrder, CancelFilledOrderReturnsNullopt) {
 // ── Trade Event Action ──
 
 TEST(TradeEventAction, CallbackInvokedOnTrade) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     std::vector<Trade> captured;
     book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
@@ -463,7 +463,7 @@ TEST(TradeEventAction, CallbackInvokedOnTrade) {
 }
 
 TEST(TradeEventAction, CallbackReceivesCorrectTradeFields) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     std::vector<Trade> captured;
     book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
@@ -480,7 +480,7 @@ TEST(TradeEventAction, CallbackReceivesCorrectTradeFields) {
 }
 
 TEST(TradeEventAction, NotInvokedWhenNoMatch) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     std::vector<Trade> captured;
     book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
@@ -491,7 +491,7 @@ TEST(TradeEventAction, NotInvokedWhenNoMatch) {
 }
 
 TEST(TradeEventAction, InvokedOncePerTradeAcrossMultipleLevels) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     std::vector<Trade> captured;
     book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
@@ -517,7 +517,7 @@ TEST(TradeEventAction, InvokedOncePerTradeAcrossMultipleLevels) {
 }
 
 TEST(TradeEventAction, SequenceNumbersIncrementAcrossCallbacks) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     std::vector<Trade> captured;
     book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
@@ -531,7 +531,7 @@ TEST(TradeEventAction, SequenceNumbersIncrementAcrossCallbacks) {
 }
 
 TEST(TradeEventAction, MarketOrderTriggersCallback) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     std::vector<Trade> captured;
     book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 
@@ -546,7 +546,7 @@ TEST(TradeEventAction, MarketOrderTriggersCallback) {
 }
 
 TEST(TradeEventAction, NoCallbackRegisteredDoesNotCrash) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     // no SetTradeEventAction call
     book.AddLimitOrder(MakeLimitSell(1, 100, 10));
 
@@ -557,7 +557,7 @@ TEST(TradeEventAction, AllRegisteredCallbacksFirePerTrade) {
     // RegisterTradeEventAction appends — every registered callback receives
     // every subsequent trade. (The previous Set-style API replaced; this one
     // accumulates.)
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     std::vector<Trade> first;
     std::vector<Trade> second;
 
@@ -572,7 +572,7 @@ TEST(TradeEventAction, AllRegisteredCallbacksFirePerTrade) {
 }
 
 TEST(TradeEventAction, FIFOWithinLevelFiresCallbackPerFill) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     std::vector<Trade> captured;
     book.RegisterTradeEventAction([&](const Trade& t) { captured.push_back(t); });
 

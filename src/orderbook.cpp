@@ -33,8 +33,8 @@ void OrderBook::emitTrade(
         Trade {
             .taker_client_id = taker_client_id,
             .maker_client_id = maker_client_id,
-            .price = price,
-            .filled_quantity = fill_quantity,
+            .price = static_cast<double>(price) * tick_size,
+            .filled_quantity = static_cast<double>(fill_quantity) * lot_size,
             .create_time = time_now,
             .sequence_number = trade_sequence_number.fetch_add(1),
             .side = side
@@ -44,17 +44,17 @@ void OrderBook::emitTrade(
 
 void OrderBook::trade(Order& order, OrderNode* resting_order, uint64_t price) {
     auto resting_order_qty = resting_order->quantity;
-    auto order_qty = order.quantity;
+    auto order_qty = static_cast<uint64_t>(order.quantity);
 
-    if (resting_order_qty >= order.quantity) {
-        resting_order->quantity -= order.quantity;
-        resting_order->filled_quantity += order.quantity;
+    if (resting_order_qty >= order_qty) {
+        resting_order->quantity -= order_qty;
+        resting_order->filled_quantity += order_qty;
 
         order.filled_quantity += order.quantity;
         order.quantity = 0;
 
         emitTrade(order_qty, price, order.client_id, resting_order->client_id, order.side);
-    } else if (resting_order_qty <= order.quantity) {
+    } else if (resting_order_qty <= order_qty) {
         order.quantity -= resting_order_qty;
         order.filled_quantity += resting_order_qty;
 
@@ -68,8 +68,8 @@ void OrderBook::trade(Order& order, OrderNode* resting_order, uint64_t price) {
 Order OrderBook::convertOrderNodeToOrder(const OrderNode* order_node) {
     return Order{
         .client_id = order_node->client_id,
-        .quantity = order_node->quantity,
-        .filled_quantity = order_node->filled_quantity,
+        .quantity = static_cast<double>(order_node->quantity) * lot_size,
+        .filled_quantity = static_cast<double>(order_node->filled_quantity) * lot_size,
         .price = static_cast<double>(order_node->price) * tick_size,
         .side = order_node->side,
         .create_time = order_node->create_time,
@@ -83,8 +83,8 @@ OrderNode* OrderBook::convertOrderToOrderNode(const Order& order) {
         .prev = nullptr,
         .id = next_order_id.fetch_add(1, std::memory_order_relaxed),
         .client_id = order.client_id,
-        .quantity = order.quantity,
-        .filled_quantity = order.filled_quantity,
+        .quantity = static_cast<uint64_t>(order.quantity),
+        .filled_quantity = static_cast<uint64_t>(order.filled_quantity),
         .price = toTicks(order.price),
         .side = order.side,
         .create_time = order.create_time,
@@ -192,11 +192,17 @@ Order OrderBook::AddLimitOrder(Order order) {
 
     auto pre_trade_count = trades.size();
 
+    order.quantity = static_cast<double>(toLots(order.quantity));
+    order.filled_quantity = static_cast<double>(toLots(order.filled_quantity));
+
     if (order.side == Side::Buy) {
         order = handleLimitOrder(order, asks);
     } else {
         order = handleLimitOrder(order, bids);
     }
+
+    order.quantity *= lot_size;
+    order.filled_quantity *= lot_size;
 
     refreshCache();
     fireTradeCallbacks(pre_trade_count);
@@ -210,11 +216,17 @@ Order OrderBook::AddMarketOrder(Order order) {
 
     auto pre_trade_count = trades.size();
 
+    order.quantity = static_cast<double>(toLots(order.quantity));
+    order.filled_quantity = static_cast<double>(toLots(order.filled_quantity));
+
     if (order.side == Side::Buy) {
         order = handleMarketOrder(order, asks);
     } else {
         order = handleMarketOrder(order, bids);
     }
+
+    order.quantity *= lot_size;
+    order.filled_quantity *= lot_size;
 
     refreshCache();
     fireTradeCallbacks(pre_trade_count);

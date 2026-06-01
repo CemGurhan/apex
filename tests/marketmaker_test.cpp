@@ -15,7 +15,7 @@ constexpr uint64_t SEED_BID_ID = 10000;
 constexpr uint64_t SEED_ASK_ID = 10001;
 constexpr const char* kUnusedPnlPath = "/tmp/marketmaker_test_unused.csv";
 
-void SeedBook(OrderBook& book, double bid_price, uint64_t bid_qty, double ask_price, uint64_t ask_qty) {
+void SeedBook(OrderBook& book, double bid_price, double bid_qty, double ask_price, double ask_qty) {
     book.AddLimitOrder(Order{
         .client_id = SEED_BID_ID, .quantity = bid_qty, .price = bid_price,
         .side = Side::Buy, .type = OrderType::Limit
@@ -26,14 +26,14 @@ void SeedBook(OrderBook& book, double bid_price, uint64_t bid_qty, double ask_pr
     });
 }
 
-Order LimitOrder(uint64_t id, double price, uint64_t qty, Side side) {
+Order LimitOrder(uint64_t id, double price, double qty, Side side) {
     return Order{
         .client_id = id, .quantity = qty, .price = price,
         .side = side, .type = OrderType::Limit
     };
 }
 
-void writeLimit(OrderBookClient& client, uint64_t id, double price, uint64_t qty, Side side) {
+void writeLimit(OrderBookClient& client, uint64_t id, double price, double qty, Side side) {
     client.Write(OrderBookEvent{
         .type = OrderBookEventType::LimitOrder,
         .order = LimitOrder(id, price, qty, side),
@@ -44,7 +44,7 @@ struct FinalState {
     double best_bid;
     double best_ask;
     int trade_count;
-    int64_t inventory;
+    double inventory;
 };
 
 // runScenario drives a full setup: pre-seeds the book, spins up the
@@ -67,19 +67,19 @@ FinalState runScenario(
     double tick,
     double base_spread,
     double skew,
-    uint64_t qty,
-    int64_t max_inv,
+    double qty,
+    double max_inv,
     std::function<void(OrderBook&)> seed_book,
     std::function<void(OrderBookClient&)> external_actions = {}
 ) {
-    OrderBook book(tick);
+    OrderBook book(tick, 1.0);
     if (seed_book) seed_book(book);
 
     RingBuffer<OrderBookEvent, 1024> buffer;
     PnLTracker tracker(kUnusedPnlPath, kUnusedPnlPath, 0, 0);
     std::atomic<uint64_t> counter{1};
     std::atomic<int> trades{0};
-    int64_t final_inv = 0;
+    double final_inv = 0;
 
     MMStrategyConfig mm_cfg{
         .base_spread    = base_spread,

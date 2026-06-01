@@ -7,6 +7,7 @@
 
 struct SimConfig {
     double tick_size;
+    double lot_size;
     std::chrono::seconds duration;
     std::string pnl_csv_dir;
     int sim_run_iterations;

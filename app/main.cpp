@@ -15,8 +15,8 @@ MMStrategyConfig parseMMStrategy(YAML::Node node) {
     return MMStrategyConfig{
         .base_spread    = node["base_spread"].as<double>(),
         .skew_factor    = node["skew_factor"].as<double>(),
-        .order_quantity = node["order_quantity"].as<uint64_t>(),
-        .max_inventory  = node["max_inventory"].as<int64_t>(),
+        .order_quantity = node["order_quantity"].as<double>(),
+        .max_inventory  = node["max_inventory"].as<double>(),
     };
 }
 
@@ -39,6 +39,7 @@ SimConfig loadSimConfig(const std::string& path) {
     auto node = YAML::LoadFile(path);
     return SimConfig{
         .tick_size          = node["tick_size"].as<double>(),
+        .lot_size           = node["lot_size"].as<double>(),
         .duration           = std::chrono::seconds(node["duration_seconds"].as<int64_t>()),
         .pnl_csv_dir        = node["pnl_csv_dir"].as<std::string>(),
         .sim_run_iterations = node["sim_run_iterations"].as<int>(),

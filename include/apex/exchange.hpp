@@ -13,5 +13,6 @@ public:
     virtual double GetBestAsk() = 0;
     virtual void RegisterTradeEventAction(std::function<void(const Trade&)> action) = 0;
     virtual double GetTickSize() const = 0;
+    virtual double GetLotSize() const = 0;
     virtual ~Exchange() = default;
 };

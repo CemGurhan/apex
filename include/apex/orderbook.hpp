@@ -48,11 +48,18 @@ class OrderBook : public Exchange {
         std::unordered_map<uint64_t, OrderNode*> client_id_to_node; // keyed by client_id for cancel lookups
         std::vector<std::function<void(const Trade&)>> trade_event_actions;
         double tick_size = 0;
+        double lot_size = 0;
 
         // toTicks normalizes a price (in price units) into the book's
         // internal integer tick representation.
         uint64_t toTicks(double price) const {
             return static_cast<uint64_t>(price / tick_size);
+        }
+
+        // toLots normalizes a quantity (in user units) into the book's
+        // internal integer lot representation.
+        uint64_t toLots(double quantity) const {
+            return static_cast<uint64_t>(quantity / lot_size);
         }
 
         void fireTradeCallbacks(size_t from_index);
@@ -148,7 +155,7 @@ class OrderBook : public Exchange {
         void refreshCache();
 
     public:
-        OrderBook(double tick_size) : tick_size{tick_size} {}
+        OrderBook(double tick_size, double lot_size) : tick_size{tick_size}, lot_size{lot_size} {}
 
         Order AddLimitOrder(Order order) override;
         Order AddMarketOrder(Order order) override;
@@ -175,5 +182,9 @@ class OrderBook : public Exchange {
 
         double GetTickSize() const override {
             return tick_size;
+        }
+
+        double GetLotSize() const override {
+            return lot_size;
         }
 };

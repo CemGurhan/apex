@@ -64,10 +64,9 @@ void MarketMaker::placeQuotes() {
     active_ask_client_id = std::nullopt;
 
     auto [bid_price, ask_price] = getSpreadPrices();
-    auto order_qty_i64 = static_cast<int64_t>(config.order_quantity);
 
-    auto too_long = inventory + order_qty_i64 > config.max_inventory;
-    auto too_short = inventory - order_qty_i64 < -config.max_inventory;
+    auto too_long = inventory + config.order_quantity > config.max_inventory;
+    auto too_short = inventory - config.order_quantity < -config.max_inventory;
 
     if (bid_price == 0.0 && ask_price == 0.0) {
         throw std::runtime_error("Cannot place quotes: no bids or asks in the book");
@@ -126,9 +125,9 @@ void MarketMaker::TradeEventAction(const Trade& trade) {
     Side side = Side::Buy;
     auto fill_quantity = trade.filled_quantity;
     if (our_client_id == active_bid_client_id) { // we bought
-        inventory += static_cast<int64_t>(fill_quantity);
+        inventory += fill_quantity;
     } else if (our_client_id == active_ask_client_id) { // we sold
-        inventory -= static_cast<int64_t>(fill_quantity);
+        inventory -= fill_quantity;
         side = Side::Sell;
     }
 
@@ -137,8 +136,7 @@ void MarketMaker::TradeEventAction(const Trade& trade) {
         fill_quantity,
         trade.price,
         marketMidPrice(),
-        inventory,
-        oBookClient.GetTickSize()
+        inventory
     );
 
     try {

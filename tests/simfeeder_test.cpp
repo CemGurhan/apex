@@ -41,17 +41,17 @@ DistConfig OnlyCancel() {
     return cfg;
 }
 
-Order MakeLimitBuy(uint64_t client_id, double price, uint64_t qty) {
+Order MakeLimitBuy(uint64_t client_id, double price, double qty) {
     return Order{client_id, qty, 0, price, Side::Buy, 0, OrderType::Limit};
 }
 
-Order MakeLimitSell(uint64_t client_id, double price, uint64_t qty) {
+Order MakeLimitSell(uint64_t client_id, double price, double qty) {
     return Order{client_id, qty, 0, price, Side::Sell, 0, OrderType::Limit};
 }
 
 
 TEST(SimulatedFeeder, RunsAndStopsWithoutCrashing) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<uint64_t> counter{1};
 
@@ -70,7 +70,7 @@ TEST(SimulatedFeeder, RunsAndStopsWithoutCrashing) {
 }
 
 TEST(SimulatedFeeder, LimitOnlyConfigRestsOrdersOnBook) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<uint64_t> counter{1};
 
@@ -92,7 +92,7 @@ TEST(SimulatedFeeder, LimitOnlyConfigRestsOrdersOnBook) {
 }
 
 TEST(SimulatedFeeder, MarketOnlyAgainstSeededBookProducesTrades) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<uint64_t> counter{1};
 
@@ -123,7 +123,7 @@ TEST(SimulatedFeeder, MarketOnlyAgainstSeededBookProducesTrades) {
 }
 
 TEST(SimulatedFeeder, CancelOnlyWithEmptyTrackingIsNoOp) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<uint64_t> counter{1};
 
@@ -151,7 +151,7 @@ TEST(SimulatedFeeder, CancelOnlyWithEmptyTrackingIsNoOp) {
 }
 
 TEST(SimulatedFeeder, StopHaltsBookActivity) {
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<uint64_t> counter{1};
 
@@ -180,7 +180,7 @@ TEST(SimulatedFeeder, MixedLimitAndCancelProgressesBookOverTime) {
     // The feeder places limits and occasionally cancels its own resting orders.
     // After a longer run, the book should have non-empty levels — the cancel path
     // shouldn't drain everything since limits dominate (limit_prob=0.7).
-    OrderBook book(1.0);
+    OrderBook book(1.0, 1.0);
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<uint64_t> counter{1};
 

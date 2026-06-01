@@ -81,14 +81,12 @@ uint64_t PnLTracker::now() {
 
 void PnLTracker::OnFill(
     Side side,
-    uint64_t fill_qty,
-    uint64_t fill_price,
+    double fill_qty,
+    double fill_price,
     double mid_price,
-    int64_t inventory,
-    double tick_size
+    double inventory
 ) {
-    auto f_price_denormalized = fill_price * tick_size;
-    double cash_delta = fill_qty * f_price_denormalized;
+    double cash_delta = fill_qty * fill_price;
     double new_realized = snapshots.empty() ? 0.0 : snapshots.back().realized_pnl;
 
     new_realized += (side == Side::Sell) ? cash_delta : -cash_delta;

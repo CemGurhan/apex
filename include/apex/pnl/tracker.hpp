@@ -33,11 +33,10 @@ class PnLTracker {
 
         void OnFill(
             Side side,
-            uint64_t fill_qty,
-            uint64_t fill_price,
+            double fill_qty,
+            double fill_price,
             double mid_price,
-            int64_t inventory,
-            double tick_size
+            double inventory
         );
 
         // WriteRunResultsToCSV writes snapshots to the PnL store. It also

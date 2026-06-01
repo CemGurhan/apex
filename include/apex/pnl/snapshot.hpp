@@ -13,5 +13,5 @@ struct PnLSnapshot {
     double unrealized_pnl = 0; 
     // total_pnl is the total of realized and unrealized_pnl. 
     double total_pnl = 0;       
-    int64_t inventory = 0;
+    double inventory = 0;
 };

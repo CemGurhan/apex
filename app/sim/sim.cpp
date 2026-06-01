@@ -68,7 +68,7 @@ std::string pnlCsvPath(const std::string& dir, int iteration) {
 }
 
 IntraSummary runSim(const SimConfig& cfg, int iteration, const std::string& runDir) {
-    auto order_book = OrderBook(cfg.tick_size);
+    auto order_book = OrderBook(cfg.tick_size, cfg.lot_size);
     auto buffer = RingBuffer<OrderBookEvent, 1024>();
 
     auto client = OrderBookClient(order_book, buffer);

@@ -51,4 +51,8 @@ class OrderBookClient {
         double GetTickSize() {
             return book.GetTickSize();
         }
+
+        double GetLotSize() {
+            return book.GetLotSize();
+        }
 };

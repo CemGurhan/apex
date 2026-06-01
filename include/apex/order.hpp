@@ -14,8 +14,8 @@ enum class OrderType {
 struct Order {
     // client_id is set by the submitting client.
     uint64_t client_id;
-    uint64_t quantity;
-    uint64_t filled_quantity = 0;
+    double quantity;
+    double filled_quantity = 0;
     double price;
     Side side;
     uint64_t create_time;
