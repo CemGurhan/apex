@@ -19,7 +19,7 @@ set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 set(YAML_CPP_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(yaml-cpp)
 
-add_library(apex_lib STATIC src/orderbook.cpp src/pnl/tracker.cpp src/marketmaker.cpp src/orderbookclient.cpp)
+add_library(apex_lib STATIC src/orderbook.cpp src/pnl/tracker.cpp src/marketmaker.cpp src/orderbookclient.cpp src/simfeeder.cpp)
 target_include_directories(apex_lib PUBLIC include)
 
 add_executable(apex app/main.cpp app/sim/sim.cpp app/sim/html/html.cpp)
