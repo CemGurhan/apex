@@ -11,7 +11,7 @@
 #include <random>
 #include <sstream>
 #include <thread>
-#include "apex/simfeeder.hpp"
+#include "apex/simfeeder/simfeeder.hpp"
 #include "apex/strategies/marketmaker/marketmaker.hpp"
 #include "html/html.hpp"
 #include "summary.hpp"

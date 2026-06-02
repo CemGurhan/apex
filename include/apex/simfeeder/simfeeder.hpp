@@ -1,12 +1,12 @@
 #pragma once
 
-#include "feeder.hpp"
 #include <atomic>
 #include <random>
 #include <thread>
 #include <vector>
-#include "side.hpp"
-#include "orderbookclient.hpp"
+#include "apex/feeder.hpp"
+#include "apex/orderbookclient.hpp"
+#include "apex/side.hpp"
 #include "distconfig.hpp"
 
 class SimulatedFeeder : EventFeeder {

@@ -2,7 +2,7 @@
 
 #include <chrono>
 #include <string>
-#include "apex/distconfig.hpp"
+#include "apex/simfeeder/distconfig.hpp"
 #include "apex/strategies/marketmaker/mmstratconfig.hpp"
 
 struct SimConfig {

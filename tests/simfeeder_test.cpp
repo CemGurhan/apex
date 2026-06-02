@@ -2,7 +2,7 @@
 #include <atomic>
 #include <chrono>
 #include <thread>
-#include "apex/simfeeder.hpp"
+#include "apex/simfeeder/simfeeder.hpp"
 
 namespace {
 
