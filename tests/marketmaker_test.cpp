@@ -3,7 +3,7 @@
 #include <chrono>
 #include <functional>
 #include <thread>
-#include "apex/marketmaker.hpp"
+#include "apex/strategies/marketmaker/marketmaker.hpp"
 
 namespace {
 

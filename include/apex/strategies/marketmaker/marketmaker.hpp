@@ -1,12 +1,11 @@
 #pragma once
 
-#include "exchange.hpp"
 #include <atomic>
 #include <optional>
-#include "orderbookclient.hpp"
-#include "pnl/tracker.hpp"
+#include "apex/orderbookclient.hpp"
+#include "apex/pnl/tracker.hpp"
+#include "apex/trade.hpp"
 #include "mmstratconfig.hpp"
-#include "trade.hpp"
 
 class MarketMaker {
     private:

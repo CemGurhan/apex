@@ -12,7 +12,7 @@
 #include <sstream>
 #include <thread>
 #include "apex/simfeeder.hpp"
-#include "apex/marketmaker.hpp"
+#include "apex/strategies/marketmaker/marketmaker.hpp"
 #include "html/html.hpp"
 #include "summary.hpp"
 

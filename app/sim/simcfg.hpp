@@ -3,7 +3,7 @@
 #include <chrono>
 #include <string>
 #include "apex/distconfig.hpp"
-#include "apex/mmstratconfig.hpp"
+#include "apex/strategies/marketmaker/mmstratconfig.hpp"
 
 struct SimConfig {
     double tick_size;

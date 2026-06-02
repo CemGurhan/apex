@@ -1,5 +1,5 @@
 # Apex
 
-Apex is a trade strategy tester. It allows users to load historical data into
-a simulated orderbook and gauge how their strategy might perform. Apex can also be 
-used with live orderbook data for an exchange desired by the user. 
+Apex is a trade strategy tester. It allows users to test out different trade strategies
+against a simulated orderbook via a monte carlo simulation. Apex will track important metrics during 
+a strategy run and store them for you to analyze post trade. 
