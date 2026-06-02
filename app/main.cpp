@@ -53,7 +53,7 @@ void printUsage(std::string_view program) {
         << "Usage: " << program << " <flag> [options]\n"
         << "\n"
         << "Flags:\n"
-        << "  --sim                Run the simulated feeder against an orderbook + market maker.\n"
+        << "  --marketmaker        Run the simulated feeder against an orderbook + market maker.\n"
         << "  --clear              Remove every run_<uuid> subdir under the configured pnl_csv_dir.\n"
         << "  --html <run_dir>     Generate report.html from the intra/inter summary CSVs inside <run_dir>.\n"
         << "\n"
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
 
     std::string_view flag = argv[1];
 
-    if (flag == "--sim") {
+    if (flag == "--marketmaker") {
         auto cfg_path = parseCfgPath(argc, argv);
         if (!cfg_path) {
             printUsage(argv[0]);

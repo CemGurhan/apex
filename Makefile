@@ -1,7 +1,7 @@
 BUILD_DIR := build
 BIN       := $(BUILD_DIR)/apex
 
-.PHONY: all build build-apex sim clear html test clean help
+.PHONY: all build build-apex marketmaker clear html test clean help
 
 all: build-apex
 
@@ -15,8 +15,8 @@ build:
 	@test -d $(BUILD_DIR) || cmake -S . -B $(BUILD_DIR)
 	@cmake --build $(BUILD_DIR)
 
-sim: build-apex
-	@$(BIN) --sim
+marketmaker: build-apex
+	@$(BIN) --marketmaker
 
 clear: build-apex
 	@$(BIN) --clear
@@ -34,7 +34,7 @@ clean:
 help:
 	@echo "Targets:"
 	@echo "  make                       Build the apex binary."
-	@echo "  make sim                   Build apex and run the --sim demo."
+	@echo "  make marketmaker           Build apex and run the --marketmaker demo."
 	@echo "  make clear                 Build apex and remove all run_<uuid> subdirs under the cfg's pnl_csv_dir."
 	@echo "  make html RUN_DIR=<path>   Build apex and generate report.html inside the given run dir."
 	@echo "  make test                  Build everything and run all tests."
