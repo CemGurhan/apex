@@ -20,11 +20,12 @@ MMStrategyConfig parseMMStrategy(YAML::Node node) {
     };
 }
 
-DistConfig parseDist(YAML::Node node) {
-    DistConfig d{};
+SimFeederConfig parseSimFeederConfig(YAML::Node node) {
+    SimFeederConfig d{};
     if (!node) return d;
-    if (auto n = node["sigma"])                 d.sigma                 = n.as<double>();
-    if (auto n = node["fair_price_lambda"])     d.fair_price_lambda     = n.as<double>();
+    if (auto n = node["starting_fair_price"])   d.starting_fair_price   = n.as<double>();
+    if (auto n = node["fair_price_sigma"])      d.fair_price_sigma      = n.as<double>();
+    if (auto n = node["order_price_lambda"])    d.order_price_lambda    = n.as<double>();
     if (auto n = node["arrive_rate_lambda"])    d.arrive_rate_lambda    = n.as<double>();
     if (auto n = node["order_qty_size_lambda"]) d.order_qty_size_lambda = n.as<double>();
     if (auto n = node["side_prob"])             d.side_prob             = n.as<double>();
@@ -44,7 +45,7 @@ SimConfig loadSimConfig(const std::string& path) {
         .pnl_csv_dir        = node["pnl_csv_dir"].as<std::string>(),
         .sim_run_iterations = node["sim_run_iterations"].as<int>(),
         .mm_strategy        = parseMMStrategy(node["mm_strategy"]),
-        .dist               = parseDist(node["dist"]),
+        .sim_feeder_config  = parseSimFeederConfig(node["sim_feeder_config"]),
     };
 }
 

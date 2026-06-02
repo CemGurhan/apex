@@ -12,7 +12,7 @@ void SimulatedFeeder::generateMarketOrder() {
 void SimulatedFeeder::generateLimitOrder() {
     auto side = side_dist(rng) ? Side::Buy : Side::Sell;
 
-    auto price_offset = offset_dist(rng);
+    auto price_offset = order_price_offset_dist(rng);
     double order_price = 0.0;
     if (side == Side::Buy) {
         order_price = aggressive_dist(rng) ? fair_price + price_offset : fair_price - price_offset;
@@ -91,7 +91,7 @@ void SimulatedFeeder::run(std::stop_token stop) {
     while (!stop.stop_requested()) {
         // geometric brownian, not arithmetic, to keep +ve,
         // multiply fair price to get next val.
-        fair_price *= std::exp(config.sigma * fair_price_dist(rng));
+        fair_price *= std::exp(config.fair_price_sigma * fair_price_dist(rng));
 
         int order_type = order_place_dist(rng);
 

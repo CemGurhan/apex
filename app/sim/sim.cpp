@@ -79,8 +79,7 @@ IntraSummary runSim(const SimConfig& cfg, int iteration, const std::string& runD
     auto feeder = SimulatedFeeder(
         client,
         client_id_counter,
-        100.0,
-        cfg.dist,
+        cfg.sim_feeder_config,
         static_cast<uint64_t>(iteration)
     );
     feeder.Run();

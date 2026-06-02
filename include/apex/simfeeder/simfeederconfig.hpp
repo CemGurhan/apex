@@ -1,19 +1,22 @@
 #pragma once
 
-// DistConfig encapsulates the lambdas, sigma and probabilities used to configure
+// SimFeederConfig encapsulates the lambdas, sigma and probabilities used to configure
 // the distributions the SimulatedFeeder samples from to drive market activity.
-struct DistConfig {
-    // sigma controls how volatile our market is, controlling how wide our swings can be
+struct SimFeederConfig {
+    // starting_fair_price is the initial fair price the feeder begins its random walk from.
+    double starting_fair_price = 100.0;
+
+    // fair_price_sigma controls how volatile our market is, controlling how wide our swings can be
     // when selecting a random price under a normal distribution. Higher sigma means
-    // more volatile movements.
+    // more volatile movements. We use this to generate a fair price at a given moment.
     // E.g. value of 2 indicates 2 sigma i.e. ~95% of values fall between 2 and -2,
     // anything out of that range is a 2 sigma event with a probability of 5% of
     // occurring.
-    double sigma = 0.01;
+    double fair_price_sigma = 0.01;
 
-    // fair_price_lambda is used to determine how much our order prices cluster towards the fair
+    // order_price_lambda is used to determine how much our order prices cluster towards the fair
     // market price. A higher value indicates limit orders being placed closer to fair price.
-    double fair_price_lambda = 10;
+    double order_price_lambda = 10;
 
     // arrival_rate_lambda is used to determine how frequently orders arrive in our market.
     // A higher value indicates more frequent order arrivals.

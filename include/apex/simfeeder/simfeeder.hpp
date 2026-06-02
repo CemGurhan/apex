@@ -7,13 +7,13 @@
 #include "apex/feeder.hpp"
 #include "apex/orderbookclient.hpp"
 #include "apex/side.hpp"
-#include "distconfig.hpp"
+#include "simfeederconfig.hpp"
 
 class SimulatedFeeder : EventFeeder {
     private:
         OrderBookClient& client;
 
-        DistConfig config;
+        SimFeederConfig config;
 
         // We take a normal distribution here to follow the idea that prices move
         // with small independent steps - following brownian motion. A higher sigma
@@ -23,7 +23,7 @@ class SimulatedFeeder : EventFeeder {
         // We take an exponential distribution to ensure that values are always positive,
         // and that larger values are rarer, when determining how close to fair we place
         // our orders.
-        std::exponential_distribution<double> offset_dist;
+        std::exponential_distribution<double> order_price_offset_dist;
 
         // We take an exponential distribution to determine the time between order arrivals,
         // ensuring that we have a positive time interval, and that longer intervals are rarer.
@@ -71,14 +71,13 @@ class SimulatedFeeder : EventFeeder {
         SimulatedFeeder(
             OrderBookClient& client,
             std::atomic<uint64_t>& client_id_counter,
-            double starting_fair_price = 100.0,
-            DistConfig config = {},
+            SimFeederConfig config = {},
             uint64_t seed = std::random_device{}()
         ) :
         client{client},
         config{config},
         fair_price_dist(0.0),
-        offset_dist(config.fair_price_lambda),
+        order_price_offset_dist(config.order_price_lambda),
         arrival_dist(config.arrive_rate_lambda),
         order_qty_size(config.order_qty_size_lambda),
         side_dist(config.side_prob),
@@ -86,6 +85,6 @@ class SimulatedFeeder : EventFeeder {
         order_place_dist({config.market_order_prob, config.limit_order_prob, config.cancel_order_prob}),
         rng(seed),
         client_id_counter{client_id_counter},
-        fair_price{starting_fair_price}
+        fair_price{config.starting_fair_price}
         {};
 };

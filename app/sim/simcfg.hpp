@@ -2,7 +2,7 @@
 
 #include <chrono>
 #include <string>
-#include "apex/simfeeder/distconfig.hpp"
+#include "apex/simfeeder/simfeederconfig.hpp"
 #include "apex/strategies/marketmaker/mmstratconfig.hpp"
 
 struct SimConfig {
@@ -12,5 +12,5 @@ struct SimConfig {
     std::string pnl_csv_dir;
     int sim_run_iterations;
     MMStrategyConfig mm_strategy;
-    DistConfig dist;
+    SimFeederConfig sim_feeder_config;
 };

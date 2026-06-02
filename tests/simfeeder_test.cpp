@@ -9,22 +9,22 @@ namespace {
 using namespace std::chrono_literals;
 
 // Picks a config that funnels the feeder to exactly one order kind.
-// Setting fields post-construction is important because DistConfig's
+// Setting fields post-construction is important because SimFeederConfig's
 // limit_order_prob default expression isn't re-evaluated when sibling
 // fields are later mutated.
-DistConfig OnlyLimit(double aggressive_prob = 0.0, double sigma = 0.001) {
-    DistConfig cfg{};
+SimFeederConfig OnlyLimit(double aggressive_prob = 0.0, double fair_price_sigma = 0.001) {
+    SimFeederConfig cfg{};
     cfg.market_order_prob = 0.0;
     cfg.limit_order_prob = 1.0;
     cfg.cancel_order_prob = 0.0;
     cfg.aggressive_prob = aggressive_prob;
-    cfg.sigma = sigma;
+    cfg.fair_price_sigma = fair_price_sigma;
     cfg.arrive_rate_lambda = 10;  // tight inter-arrival so short test windows produce many events
     return cfg;
 }
 
-DistConfig OnlyMarket() {
-    DistConfig cfg{};
+SimFeederConfig OnlyMarket() {
+    SimFeederConfig cfg{};
     cfg.market_order_prob = 1.0;
     cfg.limit_order_prob = 0.0;
     cfg.cancel_order_prob = 0.0;
@@ -32,8 +32,8 @@ DistConfig OnlyMarket() {
     return cfg;
 }
 
-DistConfig OnlyCancel() {
-    DistConfig cfg{};
+SimFeederConfig OnlyCancel() {
+    SimFeederConfig cfg{};
     cfg.market_order_prob = 0.0;
     cfg.limit_order_prob = 0.0;
     cfg.cancel_order_prob = 1.0;
@@ -77,7 +77,7 @@ TEST(SimulatedFeeder, LimitOnlyConfigRestsOrdersOnBook) {
     {
         OrderBookClient client(book, buffer);
         {
-            SimulatedFeeder feeder(client, counter, 100.0, OnlyLimit());
+            SimulatedFeeder feeder(client, counter, OnlyLimit());
             feeder.Run();
             std::this_thread::sleep_for(50ms);
             feeder.Stop();
@@ -111,7 +111,7 @@ TEST(SimulatedFeeder, MarketOnlyAgainstSeededBookProducesTrades) {
     {
         OrderBookClient client(book, buffer);
         {
-            SimulatedFeeder feeder(client, counter, 100.0, OnlyMarket());
+            SimulatedFeeder feeder(client, counter, OnlyMarket());
             feeder.Run();
             std::this_thread::sleep_for(50ms);
             feeder.Stop();
@@ -137,7 +137,7 @@ TEST(SimulatedFeeder, CancelOnlyWithEmptyTrackingIsNoOp) {
         {
             // The feeder hasn't placed any limits, so its active_order_ids is empty;
             // every cancel pick should be a no-op early return.
-            SimulatedFeeder feeder(client, counter, 100.0, OnlyCancel());
+            SimulatedFeeder feeder(client, counter, OnlyCancel());
             feeder.Run();
             std::this_thread::sleep_for(50ms);
             feeder.Stop();
@@ -158,7 +158,7 @@ TEST(SimulatedFeeder, StopHaltsBookActivity) {
     {
         OrderBookClient client(book, buffer);
         {
-            SimulatedFeeder feeder(client, counter, 100.0, OnlyLimit());
+            SimulatedFeeder feeder(client, counter, OnlyLimit());
             feeder.Run();
             std::this_thread::sleep_for(30ms);
             feeder.Stop();
@@ -184,18 +184,18 @@ TEST(SimulatedFeeder, MixedLimitAndCancelProgressesBookOverTime) {
     RingBuffer<OrderBookEvent, 1024> buffer;
     std::atomic<uint64_t> counter{1};
 
-    DistConfig cfg{};
+    SimFeederConfig cfg{};
     cfg.market_order_prob = 0.0;
     cfg.limit_order_prob = 0.7;
     cfg.cancel_order_prob = 0.3;
     cfg.aggressive_prob = 0.0;
-    cfg.sigma = 0.001;
+    cfg.fair_price_sigma = 0.001;
     cfg.arrive_rate_lambda = 10;
 
     {
         OrderBookClient client(book, buffer);
         {
-            SimulatedFeeder feeder(client, counter, 100.0, cfg);
+            SimulatedFeeder feeder(client, counter, cfg);
             feeder.Run();
             std::this_thread::sleep_for(100ms);
             feeder.Stop();
