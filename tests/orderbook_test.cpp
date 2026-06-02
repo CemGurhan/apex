@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "apex/orderbook.hpp"
+#include "apex/orderbook/orderbook.hpp"
 
 namespace {
 

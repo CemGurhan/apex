@@ -1,9 +1,9 @@
 #pragma once
 
-#include "orderbook.hpp"
-#include "stream/ringbuffer.hpp"
-#include "event.hpp"
 #include <thread>
+#include "apex/orderbook/orderbook.hpp"
+#include "apex/stream/ringbuffer.hpp"
+#include "apex/event.hpp"
 
 // OrderBookClient enables interaction with the orderbook.
 // It immediately begins running and processing once initialized.
