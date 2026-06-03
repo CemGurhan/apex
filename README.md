@@ -23,10 +23,38 @@ make marketmaker
 
 After your simulation is finished running, the PnL metrics captured will be stored in the default location `app/sim/pnl`.
 Each run will be have metrics stored under a sub directory here with a UUID. Under this run sub directory you will also find
-a report.html file that allows you to visualize your PnL metrics.
+a report.html file that allows you to visualize your PnL metrics. Here's a snapshot of an example report from an albeit un-profitable simulation run:
+
+![alt text](image.png)
 
 To configure aspects of your simulation and strategies you can edit the config file found [here](app/sim/simcfg.yaml). Details
 on each configuration can be found in the following sections.
+
+# PnL Metrics
+
+The PnL metrics captured during simulation runs are as follows:
+
+## Intra PnL Metric Summary
+
+PnL metrics for individual runs of the monte carlo simulation are stored in the PnL metrics directory in the file intra_summary.csv. These metrics include:
+
+- **Final Total PnL**: the total PnL accrued by the strategy during the simulation.
+- **Final Inventory**: the inventory left over after the strategy completed.
+- **Sharpe Ratio**: the ratio of the mean and standard deviations of PnL changes within a run. Used to see how well the strategy performs under market volatility. A larger value means a more consistent strategy.
+- **Max Drawdown**: maximum difference between a peak in our PnL and the next trough in our PnL. E.g. a PnL sequence of 50, 20, -10, 80 would yield a max drawdown of 50 - -10 = 60.
+
+## Inter PnL Metric Summary
+
+PnL metrics across individual runs of monte carlo simulations are stored in the PnL metrics directory in the file inter_summary.csv. These metrics include:
+
+- **Median PnL**: The median of total PnLs captured across each simulation run.
+- **Mean PnL**: The mean of total PnLs captured across each simulation run.
+- **Stdev PnL**: The standard deviation of total PnLs captured across each simulation run.
+- **Win Rate**: The percentage of simulation runs that had positive total PnLs.
+- **Worst max Drawdown**: The biggest max drawdown seen from all simulations that were run.
+- **Best max Drawdown**: The smallest max drawdown seen from all simulations that were run.
+- **Median Sharpe**: The median of all sharpe ratios captured by all the simulations that were run.
+- **Mean Sharpe**: The mean of all sharpe ratios captured by all the simulations that were run.
 
 # Strategies
 
@@ -37,7 +65,7 @@ This section gives a more in depth explanation on how the existing base strategi
 The market maker strategy can be configured [here](app/sim/simcfg.yaml) by altering the mm_strategy fields. 
 
 The market maker strategy is very simple. It tracks inventory during runs and uses our current inventory to deduce where on the order book we place trades. The strategy works iteratively, where 2 trades are placed simultaneously on every iteration. One trade
-is placed as a buy order on the bid side of the book and another a sell order on the ask side of the book. The spread between this orders is what we profit off of. The objective of the strategy is to not be directional - we do not want to be long or short at all times. Instead, we want to be reactionary. If one side of the trades fills, we cancel the other side and assess what price to place the next two trades with using our existing inventory and market conditions.
+is placed as a buy order on the bid side of the book and another a sell order on the ask side of the book. The spread between these orders is what we profit off of. The objective of the strategy is to not be directional - we do not want to be long or short at all times. Instead, we want to be reactionary. If one side of the trades fills, we cancel the other side and assess what price to place the next two trades with using our existing inventory and market conditions.
 
 Inventory reflects how much of an asset the strategy currently holds. Negative inventory means the strategy is short (we have sold too much off) and positive inventory means the strategy is long (we have bought too much). 
 
@@ -94,7 +122,7 @@ the new value from the normal distribution.
 The price at which orders are placed is determined by taking an offset from the fair price. This offset is determined via an exponential distribution. We use an exponential distribution to ensure price offsets are always +ve and that very large values are more unlikely to be
 selected. This mimics actual markets, where orders are mainly priced around the fair price. order_price_lambda controls how close to the
 fair price prices remain. A larger value means price offsets are smaller and thus orders tend to cluster around the fair
-price.
+price. Higher lambda values result in smaller values as the exponential decay curve decays rapidly, most values end up sitting near zero. This can be better represented by understanding that the mean of an exponential distribution is 1/lambda.
 
 **arrive_rate_lambda**
 
@@ -117,3 +145,9 @@ aggressive_prob is used to determine the likelihood that a limit order placed by
 **market_order_prob, cancel_order_prob and limit_order_prob**
 
 market_order_prob, cancel_order_prob and limit_order_prob are used together to determine the likelihood that orders placed are either market, cancel or limit orders respectively. They are combined together to form a discrete distribution. E.g. if market_order_prob=0.1, cancel_order_prob=0.3 and limit_order_prob=0.6, this means there is a 10% chance that orders placed will be market orders, 30% chance cancel orders and 60% chance limit orders.
+
+# Orderbook + Matching Engine Architecture
+
+Apex includes its own electronic order book and matching engine, source code can be found [here](src/orderbook/orderbook.cpp). NOTE: the orderbook is intended to be used on a single thread and is not for multi-threaded use. The book holds resting orders at different price levels. Price levels are stored in an ordered set, keyed by price. Bids and asks get their own separate map of price levels. An unordered set was used to ensure bid prices (and their corresponding price levels) are stored in decreasing order and conversely to ensure ask prices are stored in ascending order. An unordered set also has the benefits of avoiding hash collisions.
+
+Each price level contains a linked list of order nodes. An order node represents an order resting on the book at that price level. A linked list was the data structure chosen for this as it makes for an efficient order removal mechanism on order cancellation. When an ordr is cancelled, its node's address is found using the orders client ID. The order is then removed in place from the linked list by having the previous and next nodes point to each other.
