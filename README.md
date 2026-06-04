@@ -148,9 +148,39 @@ market_order_prob, cancel_order_prob and limit_order_prob are used together to d
 
 # Architecture
 
+## OrderBook
+
 Apex includes its own electronic order book and matching engine, source code can be found [here](src/orderbook/orderbook.cpp). NOTE: the orderbook is intended to be used on a single thread and is not for multi-threaded use. The book holds resting orders at different price levels. Price levels are stored in an ordered set, keyed by price. Bids and asks get their own separate map of price levels. An ordered map was used to ensure bid prices (and their corresponding price levels) are stored in decreasing order and conversely to ensure ask prices are stored in ascending order. An ordered map also has the benefits of avoiding hash collisions.
 
 Each price level contains a linked list of order nodes. An order node represents an order resting on the book at that price level. A linked list was the data structure chosen for this as it makes for an efficient order removal mechanism on order cancellation. When an order is cancelled, its node's address is found using the orders client ID. The order is then removed in place from the linked list by having the previous and next nodes point to each other and deleting the underlying memory for that order node.
 
 ![Order cancellation lookup](assets/orderbook_store.png)
 ![Order cancellation removal](assets/orderbook_removal.png)
+
+The order book has a callback called TradeEventAction. The trade event action is invoked every time a trade occurs on the book. Clients are able to register custom trade event actions on the book for it to call on a trade, this allows the capture of useful trade information.
+
+## Ring Buffer
+
+## Orderbook Client
+
+The orderbook is designed to run on a single thread and is not intended for multithreaded access. For this reason an OrderBookClient was created to be in charge of submitting messages to the orderbook serially. The source code for this client can be found [here](src/orderbookclient.cpp).
+
+The order book client contains an internal Single Producer Single Consumer (SPSC) ring buffer that it uses to queue messages to send to the orderbook. The ring buffer has several advantages:
+
+1. No reallocation of memory, the buffer remains in a fixed place in memory and is fixed in size.
+2. No lock needed to access on hot path. This is because the buffer keeps a track of disparate read and write locations inside of its fixed size array, they never intersect during an actual operation.
+3. Natural back pressure can be applied, the orderbook can read as it needs and the clients can write as they need.
+
+Strategies and the simulated feeder must inject the same orderbook client into themselves and use this client to interact with the book. It is thread safe. The intended flow is one strategy per orderbook and simfeeder, so this means one orderbook client per strategy. Below is a simple diagram showcasing how all components fit together:
+
+![Architecture](assets/architecture.png)
+
+1. The orderbook client is started in a separate jthread via a run method (thread highlighted white in diagram).
+
+2. The strategy runner is ran via the main thread. The simulated feeder is ran in its own jthread.
+
+3. The strategy runner and sim feeder send orders to the order book clients writer. The clients ReadWriter then picks this up in the reader jthread started in Run.
+
+4. Orders are sent to the orderbook from the client once read from the buffer. This all happens on 1 thread. 
+
+5. Trades are fired to trade event action callbacks which are picked up by the callbacks registered in the PnL tracker and strategy.
