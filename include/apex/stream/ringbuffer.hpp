@@ -130,25 +130,3 @@ class RingBuffer {
             return {item, true};
         }
 };
-
-
-// The CPU is optimizing for single-threaded speed and doesn't know you have another thread watching.
-
-// Concrete example: the producer writes data to our ringbuffer `buffer[5]` (a cache line in main memory) then writes 
-// `write_idx = 6`  (a different cache line). If the cache line for `buffer[5]` is not in the CPU's L1 cache but 
-// `write_idx` is, the CPU faces a choice: stall the entire pipeline waiting for `buffer[5]`'s cache line to load, 
-// or put the `buffer[5]` write into a STORE BUFFER (a small queue written to if the cache line isn't ready), 
-// skip ahead, and commit `write_idx` immediately since it's already in cache.
-
-// The CPU picks option two — it's faster for single-threaded code and the result is identical from this thread's perspective. 
-// The store buffer will flush `buffer[5]` eventually. But "eventually" might be after another core has already seen 
-// `write_idx = 6` and tried to read `buffer[5]`. The other core will see stale buffer data. E.g.
-
-// 1. Core 1 writes buffer[5] = data → goes into core 1's store buffer
-// 2. Core 1 writes write_idx = 6 → cache line is hot, goes straight to cache
-// 3. Core 2 sees write_idx = 6 in cache → tries to read buffer[5]
-// 4. Core 2 reads stale buffer[5] — core 1's write is still sitting in the store buffer, not yet flushed
-
-// memory_order_release on the write_idx store forces the flush: "drain all pending writes from my store buffer 
-// before this store becomes visible." Now buffer[5] is committed to cache before write_idx = 6 is. Core 2 sees 
-// both in the correct order.

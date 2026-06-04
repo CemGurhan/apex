@@ -161,6 +161,26 @@ The order book has a callback called TradeEventAction. The trade event action is
 
 ## Ring Buffer
 
+### Hot Cold Paths
+
+The order book client operates with the ring buffer in 2 modes, cold and hot path. 
+
+The hot path is when we have a ring buffer hot and in use. Orders consistently appear on the buffer, so we decide to iterate num_read_loop times on the buffer until an item is picked up. We call read on every iteration, which is a lock free mechanism. If however an event is not picked up after num_read_loop iterations, the client moves to its cold path mechanism. 
+
+On the cold path, the client calls the TryRead method on the ring buffer. TryRead is not lock free. It uses a condition variable (with a unique lock) to wait for the write id to be advanced past the read id. This indicates something has been written to the ring buffer, breaking us out of the cv and returning the event.
+
+This was done in an effort to save CPU. On the hot path we likely won't be spinning much through read iterations, but just in case we have a period of quietness we break out of our iterator at a limit so that we don't needlessly spin CPU. We can get away with using a lock and waiting on the cold path during a quiet period as the ring buffer is not under contention.
+
+### Memory Ordering
+
+To avoid memory ordering mishaps, the ring buffer uses memory acquire and releases on the atomic read and write IDs. Here's an example explaining why this is necessary:
+
+Imagine we write to the ring buffer and update the write ID in the writer thread. In this thread, the actual ring buffer location might not be loaded into its L1 cache yet. Instead of stalling and waiting for this to load, it commits the write ID update to the L3 cache and stores the buffer update into a store queue. Eventually, the store queue will be flushed into the L3 cache when the buffer data is loaded into the thread's L1 cache. 
+
+This proves problematic when we have another reader thread arrive. It might only see the write id update in the shared L3 cache but not the ring buffer update. Hence, it might read stale data from the ring buffer! To avoid this, we use memory acquire when accessing the atomic IDs and memory release when we're done updating/accessing both the buffer and IDs. This ensures that writes before a release are visible to any thread that performs an acquire on the same atomic.
+
+Another benefit of this is efficiency. We could have used the default sequential consistency that comes with atomics, but this is quite heavy and would be used everywhere, when in fact it doesn't need to be. With memory acquire and release we can control exactly where we want to see this memory ordering so as not to slow down atomic id accesses. We use relaxed memory ordering everywhere we do not need to worry about this.
+
 ## Orderbook Client
 
 The orderbook is designed to run on a single thread and is not intended for multithreaded access. For this reason an OrderBookClient was created to be in charge of submitting messages to the orderbook serially. The source code for this client can be found [here](src/orderbookclient.cpp).
